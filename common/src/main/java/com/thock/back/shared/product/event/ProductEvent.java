@@ -1,18 +1,17 @@
 package com.thock.back.shared.product.event;
 
-
 import lombok.Builder;
 
 @Builder
-public class ProductEvent {
-    private Long productId;
-    private Long sellerId;
-    private String name;
-    private Long price;
-    private Long salePrice;
-    private String description;
-    private Integer stock;
-    private String imageUrl;
-    private String productState;
-    private ProductEventType eventType; // "CREATE", "UPDATE", "DELETE"
-}
+public record ProductEvent(
+        Long productId,
+        Long sellerId,
+        String name,
+        Long price,
+        Long salePrice,
+        String description,
+        Integer stock,
+        String imageUrl,
+        String productState,
+        ProductEventType eventType  // "CREATE", "UPDATE", "DELETE"
+) {}
