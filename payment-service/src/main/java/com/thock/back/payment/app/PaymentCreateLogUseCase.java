@@ -21,8 +21,8 @@ public class PaymentCreateLogUseCase {
 
     @Transactional
     public void saveBalanceLog(WalletDto wallet, EventType eventType, Long amount){
-        PaymentMember member = paymentMemberRepository.getReferenceById(wallet.getHolderId());
-        Wallet _wallet = walletRepository.getReferenceById(wallet.getId());
+        PaymentMember member = paymentMemberRepository.getReferenceById(wallet.holderId());
+        Wallet _wallet = walletRepository.getReferenceById(wallet.id());
 
         walletLogRepository.save(
                 new WalletLog(
@@ -30,14 +30,14 @@ public class PaymentCreateLogUseCase {
                         _wallet,
                         eventType,
                         amount,
-                        wallet.getBalance())
+                        wallet.balance())
         );
     }
 
     @Transactional
     public void saveRevenueLog(WalletDto wallet, EventType eventType, Long amount){
-        PaymentMember member = paymentMemberRepository.getReferenceById(wallet.getHolderId());
-        Wallet _wallet = walletRepository.getReferenceById(wallet.getId());
+        PaymentMember member = paymentMemberRepository.getReferenceById(wallet.holderId());
+        Wallet _wallet = walletRepository.getReferenceById(wallet.id());
 
         revenueLogRepository.save(
                 new RevenueLog(
@@ -45,21 +45,21 @@ public class PaymentCreateLogUseCase {
                         _wallet,
                         eventType,
                         amount,
-                        wallet.getRevenue())
+                        wallet.revenue())
         );
     }
 
     @Transactional
     public void savePaymentLog(PaymentDto payment) {
-        PaymentMember member = paymentMemberRepository.getReferenceById(payment.getBuyerId());
-        Payment _payment = paymentRepository.getReferenceById(payment.getId());
+        PaymentMember member = paymentMemberRepository.getReferenceById(payment.buyerId());
+        Payment _payment = paymentRepository.getReferenceById(payment.id());
         paymentLogRepository.save(
                 new PaymentLog(
                         member,
-                        payment.getOrderId(),
+                        payment.orderId(),
                         _payment.getStatus(),
-                        payment.getAmount(),
-                        payment.getPgAmount(),
+                        payment.amount(),
+                        payment.pgAmount(),
                         _payment)
         );
 

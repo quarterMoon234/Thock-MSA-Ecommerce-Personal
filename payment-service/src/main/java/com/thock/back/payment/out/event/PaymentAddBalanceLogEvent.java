@@ -3,13 +3,9 @@ package com.thock.back.payment.out.event;
 
 import com.thock.back.payment.domain.EventType;
 import com.thock.back.shared.payment.dto.WalletDto;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
 
-@Getter
-@AllArgsConstructor
-public class PaymentAddBalanceLogEvent {
-    private final WalletDto wallet;
-    private final EventType eventType;
-    private final Long amount;
-}
+public record PaymentAddBalanceLogEvent(
+        WalletDto wallet,
+        EventType eventType,
+        Long amount
+) {}

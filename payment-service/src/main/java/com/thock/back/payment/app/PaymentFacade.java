@@ -56,7 +56,7 @@ public class PaymentFacade {
     // 취소 이벤트 발행되면 토스 결제인지 일반 결제인지 체크하는 곳
     @Transactional
     public void canceledPayment(PaymentCancelRequestDto dto) {
-        Long pgAmount = paymentRepository.findByOrderId(dto.getOrderId()).get().getPgAmount();
+        Long pgAmount = paymentRepository.findByOrderId(dto.orderId()).get().getPgAmount();
         if(pgAmount > 0) { // 토스페이먼츠 결제
             this.canceledOrderTossPayment(dto);
         }

@@ -26,55 +26,55 @@ public class PaymentEventListener {
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(MemberJoinedEvent event) {
-        paymentFacade.syncMember(event.getMember());
+        paymentFacade.syncMember(event.member());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(MemberModifiedEvent event) {
-        paymentFacade.syncMember(event.getMember());
+        paymentFacade.syncMember(event.member());
     }
 
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(MarketOrderPaymentRequestedEvent event) {
-        paymentFacade.requestedOrderPayment(event.getOrder(), event.getPgAmount());
+        paymentFacade.requestedOrderPayment(event.order(), event.pgAmount());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(MarketOrderPaymentCompletedEvent event) {
-        paymentFacade.completedOrderPayment(event.getOrder());
+        paymentFacade.completedOrderPayment(event.order());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(PaymentAddRevenueLogEvent event) {
-        paymentFacade.addRevenueLog(event.getWallet(), event.getEventType(), event.getAmount());
+        paymentFacade.addRevenueLog(event.wallet(), event.eventType(), event.amount());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(PaymentAddBalanceLogEvent event) {
-        paymentFacade.addBalanceLog(event.getWallet(), event.getEventType(), event.getAmount());
+        paymentFacade.addBalanceLog(event.wallet(), event.eventType(), event.amount());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(PaymentAddPaymentLogEvent event) {
-        paymentFacade.addPaymentLog(event.getPayment());
+        paymentFacade.addPaymentLog(event.payment());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(MarketOrderPaymentRequestCanceledEvent event) {
-        paymentFacade.canceledPayment(event.getDto());
+        paymentFacade.canceledPayment(event.dto());
     }
 
     @TransactionalEventListener(phase = AFTER_COMMIT)
     @Transactional(propagation = REQUIRES_NEW)
     public void handle(SettlementCompletedEvent event) {
-        paymentFacade.completeSettlementPayment(event.getMemberID(), event.getAmount());
+        paymentFacade.completeSettlementPayment(event.memberID(), event.amount());
     }
 }

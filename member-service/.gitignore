@@ -42,3 +42,4 @@ out/
 *.mv.db
 *.trace.db
 .DS_store
+.claude

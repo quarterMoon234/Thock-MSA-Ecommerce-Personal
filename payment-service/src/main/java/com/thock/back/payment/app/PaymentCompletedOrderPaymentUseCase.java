@@ -21,12 +21,12 @@ public class PaymentCompletedOrderPaymentUseCase {
     private final EventPublisher eventPublisher;
 
     public void completedOrderPayment(OrderDto order) {
-        Wallet wallet = walletRepository.findByHolderId(order.getBuyerId()).get();
-        PaymentMember member = paymentMemberRepository.getReferenceById(order.getBuyerId());
+        Wallet wallet = walletRepository.findByHolderId(order.buyerId()).get();
+        PaymentMember member = paymentMemberRepository.getReferenceById(order.buyerId());
 
-        if(wallet.getBalance() >= order.getTotalSalePrice()){
-            wallet.withdrawBalance(order.getTotalSalePrice());
-            wallet.createBalanceLogEvent(order.getTotalSalePrice(), EventType.주문_출금);
+        if(wallet.getBalance() >= order.totalSalePrice()){
+            wallet.withdrawBalance(order.totalSalePrice());
+            wallet.createBalanceLogEvent(order.totalSalePrice(), EventType.주문_출금);
             walletRepository.save(wallet);
         }else return;
 
@@ -35,8 +35,8 @@ public class PaymentCompletedOrderPaymentUseCase {
                         0L,
                         member,
                         PaymentStatus.COMPLETED,
-                        order.getOrderNumber(),
-                        order.getTotalSalePrice(),
+                        order.orderNumber(),
+                        order.totalSalePrice(),
                         ""
                 )
         );
