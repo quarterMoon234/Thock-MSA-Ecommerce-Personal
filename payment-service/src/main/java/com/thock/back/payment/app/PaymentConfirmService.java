@@ -119,7 +119,7 @@ public class PaymentConfirmService {
     @Transactional
     public void cancelToss(PaymentCancelRequestDto req){
         // 검증
-        Payment payment = paymentRepository.findByOrderId(req.getOrderId())
+        Payment payment = paymentRepository.findByOrderId(req.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER));
 
         Wallet wallet = walletRepository.findByHolderId(payment.getBuyer().getId()).get();
@@ -131,7 +131,7 @@ public class PaymentConfirmService {
 
         Map<String, Object> body = Map.of(
                 "paymentKey", payment.getPaymentKey(),
-                "cancelReason", req.getCancelReason()
+                "cancelReason", req.cancelReason()
         );
 
         Map<String, Object> confirmResponse = WebClient.builder()
@@ -181,7 +181,7 @@ public class PaymentConfirmService {
     @Transactional
     public void cancelPayment(PaymentCancelRequestDto req){
         // 검증
-        Payment payment = paymentRepository.findByOrderId(req.getOrderId())
+        Payment payment = paymentRepository.findByOrderId(req.orderId())
                 .orElseThrow(() -> new CustomException(ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER));
 
         Wallet wallet = walletRepository.findByHolderId(payment.getBuyer().getId()).get();

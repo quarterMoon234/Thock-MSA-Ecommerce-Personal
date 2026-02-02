@@ -17,15 +17,15 @@ public class PaymentRequestedOrderPaymentUseCase {
     private final PaymentMemberRepository paymentMemberRepository;
 
     public void requestedOrderPayment(OrderDto order, Long pgPaymentAmount) {
-        PaymentMember member = paymentMemberRepository.getReferenceById(order.getBuyerId());
+        PaymentMember member = paymentMemberRepository.getReferenceById(order.buyerId());
 
         Payment payment = paymentRepository.save(
             new Payment(
                     pgPaymentAmount,
                     member,
                     PaymentStatus.REQUESTED,
-                    order.getOrderNumber(),
-                    order.getTotalSalePrice(),
+                    order.orderNumber(),
+                    order.totalSalePrice(),
                     ""
             )
         );
