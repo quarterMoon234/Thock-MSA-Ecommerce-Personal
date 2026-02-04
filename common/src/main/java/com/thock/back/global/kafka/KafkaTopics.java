@@ -10,6 +10,8 @@ public class KafkaTopics {
     // Market events
     public static final String MARKET_ORDER_PAYMENT_REQUESTED = "market.order.payment.requested";
     public static final String MARKET_ORDER_PAYMENT_COMPLETED = "market.order.payment.completed";
+    public static final String MARKET_ORDER_PAYMENT_REQUEST_CANCELED = "market.order.payment.request.canceled";
 
-
+    // Settlement events
+    public static final String SETTLEMENT_COMPLETED = "settlement.completed";
 }
