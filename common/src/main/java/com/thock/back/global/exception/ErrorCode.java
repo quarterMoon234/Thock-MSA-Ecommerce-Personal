@@ -35,7 +35,10 @@ public enum ErrorCode {
     REFRESH_TOKEN_EXPIRED("AUTH-401-6", "만료된 Refresh Token 입니다.", HttpStatus.UNAUTHORIZED),
     REFRESH_TOKEN_NOT_FOUND("AUTH-404-1", "Refresh Token을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
 
-    AUTH_CONTEXT_NOT_FOUND("AUTH-401-7", "인증 정보를 찾을 수 없습니다. 로그인이 필요합니다.", HttpStatus.UNAUTHORIZED),
+    UNAUTHENTICATED("AUTH-401-7", "인증 정보를 찾을 수 없습니다.", HttpStatus.UNAUTHORIZED),
+    INVALID_PRINCIPAL_TYPE("AUTH-401-8", "인증 주체의 타입이 올바르지 않습니다.", HttpStatus.UNAUTHORIZED),
+
+    AUTH_CONTEXT_NOT_FOUND("AUTH-401-9", "인증 정보를 찾을 수 없습니다. 로그인이 필요합니다.", HttpStatus.UNAUTHORIZED),
 
     // ===== 회원 =====
     MEMBER_NOT_FOUND("MEMBER-404-1", "회원을 찾을 수 없습니다.", HttpStatus.NOT_FOUND),
