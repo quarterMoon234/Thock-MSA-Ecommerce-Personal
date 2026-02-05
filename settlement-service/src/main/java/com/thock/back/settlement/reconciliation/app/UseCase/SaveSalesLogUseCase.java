@@ -5,7 +5,9 @@ import com.thock.back.settlement.reconciliation.domain.enums.OrderEventStatus;
 import com.thock.back.settlement.reconciliation.in.dto.OrderItemMessageDto;
 import com.thock.back.settlement.reconciliation.out.SalesLogRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 
+@Service
 @RequiredArgsConstructor
 public class SaveSalesLogUseCase {
     private final SalesLogRepository salesLogRepository;

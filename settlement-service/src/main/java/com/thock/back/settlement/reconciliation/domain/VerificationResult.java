@@ -45,7 +45,7 @@ public class VerificationResult extends BaseCreatedTime {
     // 대사 상태 (String, 길이 30 제한)
     // 값 예시: "MATCH", "MISMATCH", / "PG_MISSING", "INTERNAL_MISSING" 이건 일단 보류
     @Enumerated(EnumType.STRING)
-    @Column(name = "status", nullable = false, length = 30)
+    @Column(name = "reconciliation_status", nullable = false, length = 30)
     private ReconciliationStatus reconciliationStatus;
 
     // 차액 (PG금액 - 우리금액)

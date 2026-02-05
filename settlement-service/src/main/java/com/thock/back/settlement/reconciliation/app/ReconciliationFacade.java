@@ -6,11 +6,13 @@ import com.thock.back.settlement.reconciliation.app.UseCase.SaveSalesLogUseCase;
 import com.thock.back.settlement.reconciliation.in.dto.OrderItemMessageDto;
 import com.thock.back.settlement.reconciliation.in.dto.PgSalesDto;
 import lombok.RequiredArgsConstructor;
+import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.List;
 
+@Service
 @RequiredArgsConstructor
 public class ReconciliationFacade {
     private final SaveSalesLogUseCase saveSalesLogUseCase;
