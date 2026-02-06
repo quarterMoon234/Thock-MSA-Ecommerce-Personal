@@ -6,7 +6,8 @@ import com.thock.back.global.exception.ErrorCode;
 import com.thock.back.global.exception.ErrorResponse;
 import com.thock.back.global.security.AuthContext;
 import com.thock.back.member.app.MemberSignUpService;
-import com.thock.back.member.app.MemberUpdateService;
+import com.thock.back.member.app.MemberPromoteService;
+import com.thock.back.member.domain.command.PromoteToSellerCommand;
 import com.thock.back.member.domain.command.SignUpCommand;
 import com.thock.back.member.in.dto.MemberInfoResponse;
 import com.thock.back.member.in.dto.SignUpRequest;
@@ -32,7 +33,7 @@ import org.springframework.web.bind.annotation.*;
 public class MemberController {
 
     private final MemberSignUpService memberSignUpService;
-    private final MemberUpdateService memberUpdateService;
+    private final MemberPromoteService memberPromoteService;
 
     @Operation(summary = "회원 가입", description = "이메일, 이름, 비밀번호를 이용하여 회원 가입을 진행합니다. " + "가입이 완료되면 생성된 회원의 ID를 반환합니다.")
     @ApiResponses({
@@ -81,7 +82,13 @@ public class MemberController {
             throw new CustomException(ErrorCode.AUTH_CONTEXT_NOT_FOUND);
         }
 
-        memberUpdateService.updateMemberRole(memberId, request.bankCode(), request.accountNumber(), request.accountHolder());
+        memberPromoteService.promoteToSeller(
+                new PromoteToSellerCommand(
+                        memberId,
+                        request.bankCode(),
+                        request.accountNumber(),
+                        request.accountHolder())
+        );
 
         return ResponseEntity.ok().build();
 
