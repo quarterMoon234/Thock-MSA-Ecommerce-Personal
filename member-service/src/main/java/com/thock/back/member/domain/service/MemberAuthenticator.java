@@ -44,7 +44,7 @@ public class MemberAuthenticator {
         validateMemberState(member);
         validateCredential(member.getId(), command.password());
 
-        log.info("[Auth] Member authenticated successfully. memberId={}, email={}",
+        log.info("[AUTH] Member authenticated successfully. memberId={}, email={}",
                 member.getId(), member.getEmail());
 
         return member;
