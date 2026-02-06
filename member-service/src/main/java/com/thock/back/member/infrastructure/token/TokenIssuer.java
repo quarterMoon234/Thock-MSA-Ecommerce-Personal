@@ -55,7 +55,7 @@ public class TokenIssuer {
         String refreshTokenValue = jwtTokenProvider.createRefreshToken(member.getId());
         saveRefreshToken(member.getId(), refreshTokenValue);
 
-        log.info("[TOKEN Tokens issued for member. memberId={}]", member.getId());
+        log.info("[TOKEN] Tokens issued for member. memberId={}]", member.getId());
 
         return new TokenPair(accessToken, refreshTokenValue);
     }
