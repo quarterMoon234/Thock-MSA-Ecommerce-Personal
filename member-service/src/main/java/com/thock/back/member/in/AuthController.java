@@ -35,7 +35,7 @@ public class AuthController {
             @ApiResponse(responseCode = "500", description = "서버 내부 오류", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/login")
-    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) throws Exception {
+    public ResponseEntity<LoginResponse> login(@Valid @RequestBody LoginRequest request) {
 
         AuthenticationResult result = authApplicationService.login(new LoginCommand(request.email(), request.password()));
 
@@ -50,7 +50,7 @@ public class AuthController {
             @ApiResponse(responseCode = "500", description = "서버 내부 오류", content = @Content(mediaType = "application/json", schema = @Schema(implementation = ErrorResponse.class)))
     })
     @PostMapping("/refresh")
-    public ResponseEntity<TokenRefreshResponse> refresh(@RequestBody TokenRefreshRequest request) throws Exception {
+    public ResponseEntity<TokenRefreshResponse> refresh(@RequestBody TokenRefreshRequest request) {
         AuthenticationResult result = authApplicationService.refreshAccessToken(request.refreshToken());
         return ResponseEntity.ok(new TokenRefreshResponse(result.accessToken(), result.refreshToken()));
     }

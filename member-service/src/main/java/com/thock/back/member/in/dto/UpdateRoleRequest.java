@@ -1,6 +1,6 @@
 package com.thock.back.member.in.dto;
 
-public record UpdateNameRequest(
+public record UpdateRoleRequest(
         String bankCode,
         String accountNumber,
         String accountHolder
