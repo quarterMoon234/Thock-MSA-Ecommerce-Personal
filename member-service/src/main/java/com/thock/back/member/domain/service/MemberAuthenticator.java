@@ -12,10 +12,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
-//  왜 Domain Service인가?
-//  - 인증은 핵심 도메인 로직
-//  - Member와 Credential 두 엔티티에 걸쳐있음
-//  - 외부 시스템 의존 없음 (Repository는 Port)
+/**
+ * 회원 인증을 담당하는 Domain Service
+ * 책임:
+ * - 이메일/비밀번호 기반 인증
+ * - 회원 상태 검증 (탈퇴, 비활성)
+ * - Credential 검증
+ * 위치 이유:
+ * - 여러 엔티티(Member, Credential)에 걸친 도메인 로직
+ * - 순수한 도메인 규칙 (비즈니스 로직)
+ **/
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -25,6 +32,13 @@ public class MemberAuthenticator {
     private final CredentialRepository credentialRepository;
     private final PasswordEncoder passwordEncoder;
 
+    /**
+     * 이메일과 비밀번호로 회원 인증
+     *
+     * @param command = 로그인 커맨드
+     * @return 인증된 회원
+     * @throws CustomException 인증 실패 시
+     **/
     public Member authenticate(LoginCommand command) {
         Member member = findMemberByEmail(command.email());
         validateMemberState(member);

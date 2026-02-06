@@ -13,6 +13,19 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
+/**
+ * RefreshToken 검증을 담당하는 Domain Service
+ * 책임:
+ * - RefreshToken 존재 여부 확인
+ * - 토큰 상태 검증 (폐기, 만료)
+ * - JWT 서명 검증
+ * - MemberId 일치 검증
+ * - 회원 상태 검증
+ * 위치 이유:
+ * - 복잡한 검증 로직을 캡슐화
+ * - RefreshToken, Member 엔티티와 JWT 검증을 조합
+ **/
+
 @Slf4j
 @Component
 @RequiredArgsConstructor
@@ -25,7 +38,7 @@ public class RefreshTokenValidator {
 
     /**
      * RefreshToken을 종합적으로 검증
-     * @param refreshTokenValue 평문 RefreshToken
+     * @param refreshTokenValue = 평문 RefreshToken
      * @return 검증된 토큰과 회원 정보
      * @throws CustomException 검증 실패 시
      **/
