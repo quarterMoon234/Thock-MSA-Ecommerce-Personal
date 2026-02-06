@@ -1,5 +1,11 @@
 package com.thock.back.member.domain.vo;
 
+/**
+ * Access Token과 Refresh Token을 함께 관리하는 Value Object
+ * - 불변 객체
+ * - 토큰 발급의 결과를 표현
+ **/
+
 public record TokenPair (
         String accessToken,
         String refreshToken
