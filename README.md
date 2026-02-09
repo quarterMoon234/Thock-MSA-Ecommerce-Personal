@@ -16,17 +16,12 @@ MSA 아키텍처 기반의 이커머스 플랫폼입니다.
 
 ## 3. ERD
 
-## 💾 Core Domain Design (Database)
 
-### 1. 도메인 구조 (Domain Structure)
 > **Finance Module Separation:**
 > 정산(`Settlement`)과 대사(`Reconciliation`)의 책임을 명확히 분리하기 위해 테이블을 그룹화했습니다.
 > - **Reconciliation:** 외부 PG사 데이터와 내부 데이터의 비교/검증 담당
 > - **Settlement:** 검증된 데이터를 바탕으로 실제 지급/정산 담당
-
-![Core ERD](./images/erd_core.png)
-*(위 다이어그램은 주요 도메인 간의 관계를 시각화한 것입니다.)*
-
+> - 
 ### 대사 모듈(Reconciliation)
 
 <table width="100%">
@@ -57,31 +52,41 @@ MSA 아키텍처 기반의 이커머스 플랫폼입니다.
 ### 정산 모듈(Settlement)
 
 
-<br> <h3>💸 정산 프로세스 (Settlement Process)</h3>
-<table width="100%">
-  <tr>
-    <th align="center" width="50%">Daily Settlement</th>
-    <th align="center" width="50%">Monthly Settlement</th>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="./images/daily_settlement.png" width="100%" alt="Daily Settlement">
-    </td>
-    <td align="center">
-      <img src="./images/monthly_settlement.png" width="100%" alt="Monthly Settlement">
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <b>일별 정산 (Daily)</b><br>
+코드 자체에는 오타나 문법 오류가 없습니다. 그런데 "초록색 글"이 뜬다면 원인은 99% "들여쓰기(공백)" 때문입니다.
 
-    </td>
-    <td align="center">
-      <b>월별 정산 (Monthly)</b><br>
-      매월 1일 최종 확정<br>
-      (수수료 차감 및 지급액 산정)
-    </td>
-  </tr>
+인텔리제이나 깃허브 마크다운에서는 코드 앞에 띄어쓰기(공백 4칸 이상)가 있으면 "이건 코니까 실행하지 말고 글자 그대로 보여줘"라고 인식해서 전체를 초록색(코드 블록)으로 바꿔버립니다.
+
+해결책: 모든 줄을 왼쪽 벽에 딱 붙여야(들여쓰기 제거) 표가 정상적으로 렌더링 됩니다.
+
+아래 코드를 복사해서 앞에 공백 없이 붙여넣으세요.
+
+HTML
+<br>
+<h3>💸 정산 프로세스 (Settlement Process)</h3>
+<table width="100%">
+<tr>
+<th align="center" width="50%">Daily Settlement</th>
+<th align="center" width="50%">Monthly Settlement</th>
+</tr>
+<tr>
+<td align="center">
+<img src="./images/daily_settlement.png" width="100%" alt="Daily Settlement">
+</td>
+<td align="center">
+<img src="./images/monthly_settlement.png" width="100%" alt="Monthly Settlement">
+</td>
+</tr>
+<tr>
+<td align="center">
+<b>일별 정산 (Daily)</b><br>
+(당일 매출 1차 집계)
+</td>
+<td align="center">
+<b>월별 정산 (Monthly)</b><br>
+매월 1일 최종 확정<br>
+(수수료 차감 및 지급액 산정)
+</td>
+</tr>
 </table>
 
 
