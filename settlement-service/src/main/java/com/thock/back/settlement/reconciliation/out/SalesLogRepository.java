@@ -29,7 +29,7 @@ public interface SalesLogRepository extends JpaRepository<SalesLog, Long> {
             FROM SalesLog s
             WHERE s.reconciliationStatus = "MATCH"
             AND s.confirmedAt IS NOT NULL
-            AND s.monthlySettlementId IS NULL
+            AND s.dailySettlementId IS NULL
     """)
     List<SalesLog> findSettlementCandidates();
 }
