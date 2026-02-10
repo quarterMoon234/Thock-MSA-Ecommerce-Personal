@@ -2,14 +2,17 @@ package com.thock.back.settlement.reconciliation.in.dto;
 
 import com.thock.back.settlement.reconciliation.domain.SalesLog;
 import com.thock.back.settlement.reconciliation.domain.enums.OrderEventStatus;
-import com.thock.back.settlement.reconciliation.domain.enums.SettlementStatus;
+import com.thock.back.settlement.reconciliation.domain.enums.ReconciliationStatus;
 import com.thock.back.settlement.shared.enums.TransactionType;
+
 import java.time.LocalDateTime;
 import java.util.Map;
 
 public record OrderItemMessageDto(
         String orderNo,
+        String originalOrderNo,
         Long sellerId,
+        Long productId,
         String productName,
         int productQuantity,
         Long productAmount,
@@ -35,6 +38,7 @@ public record OrderItemMessageDto(
         return SalesLog.builder()
                 .orderNo(this.orderNo)
                 .sellerId(this.sellerId)
+                .productId(this.productId)
                 .productName(this.productName)
                 .productQuantity(this.productQuantity)
                 .productAmount(this.productAmount)
@@ -42,7 +46,7 @@ public record OrderItemMessageDto(
                 .transactionType(transactionType)
                 .metadata(this.metadata)
                 .snapshotAt(this.snapshotAt)
-                .settlementStatus(SettlementStatus.WAIT)
+                .reconciliationStatus(ReconciliationStatus.PENDING)
                 .build();
     }
 }
