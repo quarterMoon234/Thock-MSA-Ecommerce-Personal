@@ -1,6 +1,6 @@
 package com.thock.back.settlement.reconciliation.domain.enums;
 
-public enum PgStatus {
-    PAID,
-    CANCELED
+
+public enum JobStatus {
+    RUNNING, SUCCESS, FAIL, WARNING
 }

@@ -1,16 +1,19 @@
 package com.thock.back.settlement.reconciliation.domain;
 
+import com.github.f4b6a3.tsid.TsidCreator;
+import com.thock.back.settlement.reconciliation.domain.enums.JobStatus;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import com.github.f4b6a3.tsid.TsidCreator; // TSID 라이브러리
+import lombok.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
 @Getter
-@NoArgsConstructor
-@Table(name = "finance_reconciliation_job")
+@Builder
+@AllArgsConstructor
+@NoArgsConstructor(access = AccessLevel.PROTECTED)
+@Table(name = "reconciliation_job")
 public class ReconciliationJob {
 
     @Id
@@ -30,8 +33,8 @@ public class ReconciliationJob {
     private LocalDateTime startedAt;  // 배치 시작 시간
     private LocalDateTime finishedAt; // 배치 종료 시간
 
-    @Column(length = 1000)
-    private String failReason; // 시스템 에러 등으로 배치가 터졌을 때 사유
+    @Column(columnDefinition = "TEXT")
+    private String errorMessage; // 시스템 에러 등으로 배치가 터졌을 때 사유
 
     @PrePersist
     public void prePersist() {
@@ -44,6 +47,15 @@ public class ReconciliationJob {
         if (this.startedAt == null) {
             this.startedAt = LocalDateTime.now();
         }
+    }
+
+    public ReconciliationJob(LocalDate baseDate) {
+        this.baseDate = baseDate;
+        this.status = JobStatus.RUNNING;       // 생성 시점엔 무조건 RUNNING
+        this.startedAt = LocalDateTime.now();  // 생성 시점이 시작 시간
+        this.totalCount = 0;
+        this.matchCount = 0;
+        this.mismatchCount = 0;
     }
 
     // 배치 종료 시 업데이트를 위한 편의 메서드
@@ -60,13 +72,9 @@ public class ReconciliationJob {
         }
     }
 
-    public void fail(String reason) {
+    public void fail(String errorMessage) {
         this.status = JobStatus.FAIL;
-        this.failReason = reason;
+        this.errorMessage = errorMessage;
         this.finishedAt = LocalDateTime.now();
-    }
-
-    public enum JobStatus {
-        RUNNING, SUCCESS, WARNING, FAIL
     }
 }

@@ -1,126 +1,46 @@
 package com.thock.back.settlement.settlement.domain;
 
-import com.thock.back.global.jpa.entity.BaseTimeEntity;
-import com.thock.back.settlement.settlement.domain.enums.MonthlySettlementStatus;
+import com.github.f4b6a3.tsid.TsidCreator;
+import com.thock.back.settlement.settlement.domain.enums.PayoutStatus;
 import jakarta.persistence.*;
-import lombok.AccessLevel;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-
-import java.time.LocalDate;
-import java.time.LocalDateTime;
 
 @Entity
-@Table(
-        name = "finance_settlement_monthly_settlement", // 테이블명 명시
-        indexes = {
-                @Index(name = "idx_monthly_seller", columnList = "seller_id"),   // 판매자별 조회 (필수)
-                @Index(name = "idx_monthly_monthly_settlement_status", columnList = "monthly_settlement_status"),      // "PENDING" 상태인 것만 배치로 뽑아야 함 (필수)
-                @Index(name = "idx_monthly_target", columnList = "target_date")  // "2026-01" 정산 내역 조회용
-        }
-)
-@Getter
-@NoArgsConstructor(access = AccessLevel.PROTECTED)
-public class MonthlySettlement extends BaseTimeEntity {
+@Table(name = "finance_settlement_monthly")
+public class MonthlySettlement {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id;
+    private Long id; // TSID
 
-    // 판매자 ID (누구한테 줄 돈이냐)
-    @Column(name = "seller_id", nullable = false)
-    private Long sellerId;
+    // --- [누구의 돈인가?] ---
+    @Column(name = "seller_id")
+    private Long sellerId; // 판매자 ID
 
-    // 정산 기준 월 (이미지에서 VARCHAR(30)이라 하셨으므로 String)
-    // 값 예시: "2026-01" 또는 "2026-01-01~2026-01-31"
-    @Column(name = "target_date", nullable = false)
-    private LocalDate targetDate;
+    @Column(name = "target_year_month")
+    private String targetYearMonth; // 예: "202602" (2월 정산분)
 
-    // 지급 총액 (매출 합계)
-    @Column(name = "total_amount", nullable = false, precision = 18, scale = 4)
-    private Long totalAmount;
+    // --- [얼마 줄 것인가? (집계)] ---
+    @Column(name = "total_count")
+    private Long totalCount; // 이번 달 정산 건수 (Daily 개수 합)
 
-    // 수수료 총액 (플랫폼 수수료)
-    @Column(name = "fee_amount", nullable = false, precision = 18, scale = 4)
-    private Long feeAmount;
+    @Column(name = "total_payment_amount")
+    private Long totalPaymentAmount; // 총 거래액
 
-    // [실 지급액] = 총액 - 수수료 (실제 이체할 금액)
-    @Column(name = "payout_amount", nullable = false, precision = 18, scale = 4)
-    private Long payoutAmount;
+    @Column(name = "total_fee_amount")
+    private Long totalFeeAmount; // 총 수수료
 
-    // 정산 상태 (PENDING, PROCESSING, COMPLETED, FAILED)
+    @Column(name = "total_payout_amount")
+    private Long totalPayoutAmount; // ⭐ 최종 입금액 (원금 - 수수료)
+
+    // --- [지급 상태] ---
+    @Column(name = "monthly_settlement_status")
     @Enumerated(EnumType.STRING)
-    @Column(name = "monthly_settlement_status", nullable = false, length = 30)
-    private MonthlySettlementStatus monthlySettlementStatus;
+    private PayoutStatus status; // PENDING(집계완료) -> PAID(입금완료)
 
-    @Column(name = "retry_count")
-    private int retryCount = 0;
-
-    @Column(name = "error_message", columnDefinition = "TEXT" )
-    private String errorMessage;
-
-    // 계좌정보 스냅샷
-    // 정산이 확정된 시점의 계좌 정보를 박제해놔야 함.
-    // (정산금 지급 직전에 판매자가 계좌를 바꾸더라도, 정산 시점의 계좌로 나가야 안전함)
-
-    @Column(name = "bank_code_snapshot", length = 50)
-    private String bankCodeSnapshot;
-
-    @Column(name = "account_number_snapshot", length = 50)
-    private String accountNumberSnapshot;
-
-    @Column(name = "account_holder_snapshot", length = 50)
-    private String accountHolderSnapshot;
-
-    // 정산 끝나고 이체 완료 시각
-    @Column(name = "completed_at")
-    private LocalDateTime completedAt;
-
-    // --- 시간 정보 ---
-
-    // 집계 완료 및 생성 시간 createdAt 상속받아 사용
-
-    // 상태 변경 시간 updatedAt 상속받아 사용
-
-
-    @Builder
-    public MonthlySettlement(Long sellerId, LocalDate targetDate, Long totalAmount, Long feeAmount,
-                             String bankCodeSnapshot, String accountNumberSnapshot, String accountHolderSnapshot) {
-        this.sellerId = sellerId;
-        this.targetDate = targetDate;
-        this.totalAmount = totalAmount;
-        this.feeAmount = feeAmount;
-        // 실 지급액은 생성 시점에 자동 계산 (미리 넣어놓기)
-        this.payoutAmount = totalAmount - feeAmount;
-        this.monthlySettlementStatus = MonthlySettlementStatus.PENDING; // 초기 상태는 무조건 PENDING
-        this.bankCodeSnapshot = bankCodeSnapshot;
-        this.accountNumberSnapshot = accountNumberSnapshot;
-        this.accountHolderSnapshot = accountHolderSnapshot;
-    }
-
-    // --- 비즈니스 로직 메서드 ---
-
-    //Payout -> payment 모듈에 정산이 끝남을 알리는 행위(이때 전달해주는 데이터로 wallet의 포인트가 올라감)
-
-    // 지급 진행 중 (배치 진행중)
-    public void startPayout() {
-        this.monthlySettlementStatus = MonthlySettlementStatus.PROCESSING;
-    }
-
-    // 배치 끝나고, payment 모듈에 알림 후 포인트 지급 완료
-    public void successPayout() {
-        this.monthlySettlementStatus = MonthlySettlementStatus.COMPLETED;
-    }
-    // 실패 건들은 PENDING으로 남겨 재배치
-    public void failPayout(String errorMessage) {
-        this.retryCount++;
-        this.errorMessage = errorMessage;
-        if(retryCount >= 3){
-            this.monthlySettlementStatus = MonthlySettlementStatus.FAILED;
-        }
-        else{
-            this.monthlySettlementStatus = MonthlySettlementStatus.PENDING;
+    @PrePersist
+    public void generateId() {
+        if (this.id == null) {
+            // 저장하기 전에 TSID를 생성해서 넣음
+            this.id = TsidCreator.getTsid().toLong();
         }
     }
 }

@@ -1,173 +1,160 @@
 package com.thock.back.settlement.reconciliation.app.UseCase;
 
-import com.thock.back.settlement.reconciliation.domain.PgSalesRaw;
-import com.thock.back.settlement.reconciliation.domain.SalesLog;
-import com.thock.back.settlement.reconciliation.domain.enums.ReconciliationStatus;
-import com.thock.back.settlement.reconciliation.out.PgDataRepository;
+import com.thock.back.settlement.reconciliation.domain.*;
+import com.thock.back.settlement.reconciliation.domain.enums.*;
+import com.thock.back.settlement.reconciliation.in.dto.ReconciliationJobRepository;
+import com.thock.back.settlement.reconciliation.in.dto.ReconciliationMismatchLogRepository;
+import com.thock.back.settlement.reconciliation.out.PgSalesRawRepository;
 import com.thock.back.settlement.reconciliation.out.SalesLogRepository;
-import com.thock.back.settlement.reconciliation.out.VerificationResultRepository;
-import org.junit.jupiter.api.*;
+import com.thock.back.settlement.shared.enums.TransactionType;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor; // [추가] 저장이 잘 됐나 낚아채서 확인하는 도구
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
+import java.util.Collections;
 import java.util.List;
-import java.util.Optional;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThat; // [핵심] AssertJ import
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.*;
 
-@ExtendWith(MockitoExtension.class)
-@TestMethodOrder(MethodOrderer.OrderAnnotation.class)
+@ExtendWith(MockitoExtension.class) //
 class RunReconciliationUseCaseTest {
 
     @InjectMocks
-    RunReconciliationUseCase runReconciliationUseCase;
+    private RunReconciliationUseCase useCase;
 
     @Mock
-    SalesLogRepository salesLogRepository;
+    private SalesLogRepository salesLogRepository;
     @Mock
-    PgDataRepository pgDataRepository;
+    private PgSalesRawRepository pgSalesRawRepository;
     @Mock
-    VerificationResultRepository verificationResultRepository;
+    private ReconciliationJobRepository jobRepository;
+    @Mock
+    private ReconciliationMismatchLogRepository mismatchLogRepository;
 
     @Test
-    @Order(1)
-    @DisplayName("정상 대사: 성공하면 SalesLog.Reconciliation_status -> MATCH로 변경")
+    @DisplayName("정상 대사: PG와 내부 데이터가 일치할 때")
     void success_match() {
         // given
-        LocalDate targetDate = LocalDate.of(2026, 2, 4);
-        String orderNo = "ORD-001";
-        Long amount = 10000L;
+        LocalDate date = LocalDate.now();
 
-        // 테스트 PG사 데이터
         PgSalesRaw pgData = PgSalesRaw.builder()
-                .pgKey("PG-KEY-111")
-                .merchantUid(orderNo) // 주문번호 일치
-                .paymentAmount(amount) // 금액 일치
-                .transactedAt(LocalDateTime.now())
-                .build();
+                .merchantUid("ORD-001").pgStatus(PgStatus.PAID).paymentAmount(1000L).build();
 
-        // 테스트 주문서 데이터
-        SalesLog saleLog = SalesLog.builder()
-                .orderNo(orderNo)
-                .paymentAmount(amount)
-                .reconciliationStatus(ReconciliationStatus.PENDING) // 아직 대사 전
-                .build();
-
-        // 1-3. 리포지토리 조회 후 바로 반환
-        given(pgDataRepository.findAllByTransactedAtBetween(any(), any()))
-                .willReturn(List.of(pgData));
-
-        given(salesLogRepository.findByOrderNo(orderNo))
-                .willReturn(Optional.of(saleLog));
+        SalesLog internalData = SalesLog.builder()
+                .orderNo("ORD-001").transactionType(TransactionType.PAYMENT).paymentAmount(1000L).build();
 
         // when
-        runReconciliationUseCase.execute(targetDate);
+        when(pgSalesRawRepository.findAllByTransactedAtBetween(any(), any())).thenReturn(List.of(pgData));
+        when(salesLogRepository.findByOrderNoAndTransactionType("ORD-001", TransactionType.PAYMENT))
+                .thenReturn(List.of(internalData));
+
+        // 역방향 체크용: 빈 리스트 반환 (유령 데이터 없음)
+        when(salesLogRepository.findAllBySnapshotAtBetweenAndReconciliationStatus(any(), any(), eq(ReconciliationStatus.PENDING)))
+                .thenReturn(Collections.emptyList());
+
+        useCase.execute(date);
 
         // then
-        assertThat(saleLog.getReconciliationStatus()).isEqualTo(ReconciliationStatus.MATCH);
+        // 1. Job이 1번 저장되었는지
+        verify(jobRepository, times(1)).save(any(ReconciliationJob.class));
 
-        // 3-2. 성공한 경우는 verification_result에 로그 안쌓임
-        verify(verificationResultRepository, times(0)).save(any());
+        // 2. Mismatch 로그는 저장되면 안 됨 (성공이니까)
+        verify(mismatchLogRepository, never()).save(any());
     }
 
     @Test
-    @Order(2)
-    @DisplayName("금액 불일치 대사: verification_result 테이블에 저장되고, MISMATCH로 기록됨")
+    @DisplayName("금액 불일치: PG(1000원) vs 내부(500원)")
     void fail_amount_mismatch() {
         // given
-        LocalDate targetDate = LocalDate.of(2026, 2, 4);
-        String orderNo = "ORD-002";
+        LocalDate date = LocalDate.now();
 
-        // PG값 10,000원, 주문서 5,000원
         PgSalesRaw pgData = PgSalesRaw.builder()
-                .merchantUid(orderNo)
-                .paymentAmount(10000L)
-                .transactedAt(LocalDateTime.now())
-                .build();
+                .merchantUid("ORD-DIFF").pgStatus(PgStatus.PAID).paymentAmount(1000L).build();
 
-        SalesLog saleLog = SalesLog.builder()
-                .orderNo(orderNo)
-                .paymentAmount(5000L) // 금액 다름
-                .reconciliationStatus(ReconciliationStatus.PENDING)
-                .build();
+        SalesLog internalData = SalesLog.builder()
+                .orderNo("ORD-DIFF").transactionType(TransactionType.PAYMENT).paymentAmount(500L).build();
 
-        given(pgDataRepository.findAllByTransactedAtBetween(any(), any()))
-                .willReturn(List.of(pgData));
-        given(salesLogRepository.findByOrderNo(orderNo))
-                .willReturn(Optional.of(saleLog));
+        when(pgSalesRawRepository.findAllByTransactedAtBetween(any(), any())).thenReturn(List.of(pgData));
+        when(salesLogRepository.findByOrderNoAndTransactionType("ORD-DIFF", TransactionType.PAYMENT))
+                .thenReturn(List.of(internalData));
 
         // when
-        runReconciliationUseCase.execute(targetDate);
+        useCase.execute(date);
 
         // then
-        // SalesLog.reconciliationStatus가 MISMATCH로 바뀌어야함
-        assertThat(saleLog.getReconciliationStatus()).isEqualTo(ReconciliationStatus.MISMATCH);
+        ArgumentCaptor<ReconciliationMismatchLog> captor = ArgumentCaptor.forClass(ReconciliationMismatchLog.class);
+        verify(mismatchLogRepository, times(1)).save(captor.capture());
+        ReconciliationMismatchLog savedLog = captor.getValue();
 
-        // 실패로그는 쌓여야함
-        verify(verificationResultRepository, times(1)).save(any());
+        assertThat(savedLog.getType()).isEqualTo(MismatchType.AMOUNT_DIFF); // 타입 확인
+        assertThat(savedLog.getPgAmount()).isEqualTo(1000L); // PG 금액 확인
+        assertThat(savedLog.getInternalAmount()).isEqualTo(500L); // 내부 금액 확인
+        assertThat(savedLog.getReason()).contains("금액 불일치"); // 메시지 확인
     }
 
     @Test
-    @Order(3)
-    @DisplayName("주문서 누락의 경우: 실패 로그만 쌓임")
-    void fail_missing_order() {
-        // 1. [Given]
-        LocalDate targetDate = LocalDate.of(2026, 2, 4);
-        String orderNo = "ORD-003";
-
+    @DisplayName("주문서 누락: PG에는 있는데 내부 DB에 없을 때")
+    void fail_pg_only() {
+        // given
+        LocalDate date = LocalDate.now();
         PgSalesRaw pgData = PgSalesRaw.builder()
-                .merchantUid(orderNo)
-                .paymentAmount(10000L)
-                .transactedAt(LocalDateTime.now())
+                .merchantUid("ORD-GHOST")
+                .pgStatus(PgStatus.PAID)
+                .paymentAmount(5000L)
                 .build();
 
-        given(pgDataRepository.findAllByTransactedAtBetween(any(), any()))
-                .willReturn(List.of(pgData));
+        when(pgSalesRawRepository.findAllByTransactedAtBetween(any(), any())).thenReturn(List.of(pgData));
+        // 빈 리스트 반환 (누락 시)
+        when(salesLogRepository.findByOrderNoAndTransactionType("ORD-GHOST", TransactionType.PAYMENT))
+                .thenReturn(Collections.emptyList());
 
-        // 중요: 내 장부에서는 못 찾음 (Empty)
-        given(salesLogRepository.findByOrderNo(orderNo))
-                .willReturn(Optional.empty());
+        // when
+        useCase.execute(date);
 
-        // 2. [When]
-        runReconciliationUseCase.execute(targetDate);
+        // then
+        ArgumentCaptor<ReconciliationMismatchLog> captor = ArgumentCaptor.forClass(ReconciliationMismatchLog.class);
+        verify(mismatchLogRepository, times(1)).save(captor.capture());
 
-        // 3. [Then]
-        // 결과 저장소가 호출되었는지 확인 (누락 로그 저장)
-        verify(verificationResultRepository, times(1)).save(any());
+        ReconciliationMismatchLog savedLog = captor.getValue();
+
+        assertThat(savedLog.getType()).isEqualTo(MismatchType.PG_ONLY);
+        assertThat(savedLog.getReason()).isEqualTo("주문서 누락");
     }
 
     @Test
-    @Order(4)
-    @DisplayName("⏭️ 중복 스킵: 이미 MATCH 된 건은 무시한다.")
-    void skip_already_matched() {
-        // 1. [Given]
-        String orderNo = "ORD-004";
+    @DisplayName("역방향 체크: 내부 DB에만 PENDING 데이터가 남아있을 때")
+    void fail_internal_only() {
+        // given
+        LocalDate date = LocalDate.now();
 
-        PgSalesRaw pgData = PgSalesRaw.builder().merchantUid(orderNo).build();
+        // PG 데이터는 없음
+        when(pgSalesRawRepository.findAllByTransactedAtBetween(any(), any())).thenReturn(Collections.emptyList());
 
-        SalesLog saleLog = SalesLog.builder()
-                .orderNo(orderNo)
-                .reconciliationStatus(ReconciliationStatus.MATCH) // 이미 성공함!
-                .build();
+        // 내부 PENDING 데이터 1건 존재 (유령 데이터)
+        SalesLog ghostLog = SalesLog.builder()
+                .orderNo("ORD-InternalOnly").paymentAmount(1000L).build();
 
-        given(pgDataRepository.findAllByTransactedAtBetween(any(), any())).willReturn(List.of(pgData));
-        given(salesLogRepository.findByOrderNo(orderNo)).willReturn(Optional.of(saleLog));
+        when(salesLogRepository.findAllBySnapshotAtBetweenAndReconciliationStatus(any(), any(), eq(ReconciliationStatus.PENDING)))
+                .thenReturn(List.of(ghostLog));
 
-        // 2. [When]
-        runReconciliationUseCase.execute(LocalDate.now());
+        // when
+        useCase.execute(date);
 
-        // 3. [Then]
-        // 아무 일도 안 일어나야 함 (성공 로직도, 실패 저장도 안 탐)
-        // 즉, 상태 변경 로직 같은 게 실행 안 됐는지 간접 확인
-        // (여기서는 verificationResultRepository.save가 안 불린 걸로 확인)
-        verify(verificationResultRepository, times(0)).save(any());
+        // then
+        ArgumentCaptor<ReconciliationMismatchLog> captor = ArgumentCaptor.forClass(ReconciliationMismatchLog.class);
+        verify(mismatchLogRepository, times(1)).save(captor.capture());
+
+        ReconciliationMismatchLog savedLog = captor.getValue();
+
+        assertThat(savedLog.getType()).isEqualTo(MismatchType.INTERNAL_ONLY);
+        assertThat(savedLog.getOrderNo()).isEqualTo("ORD-InternalOnly");
     }
 }
