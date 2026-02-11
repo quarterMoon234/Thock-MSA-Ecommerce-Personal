@@ -1,9 +1,9 @@
 package com.thock.back.settlement.reconciliation.domain;
 
+import com.github.f4b6a3.tsid.TsidCreator;
 import com.thock.back.global.jpa.entity.BaseTimeEntity;
 import com.thock.back.settlement.reconciliation.domain.enums.PaymentMethod;
 import com.thock.back.settlement.reconciliation.domain.enums.ReconciliationStatus;
-import com.thock.back.settlement.reconciliation.domain.enums.SettlementStatus;
 import com.thock.back.settlement.shared.converter.MapToJsonConverter;
 import com.thock.back.settlement.shared.enums.TransactionType;
 import jakarta.persistence.*;
@@ -28,7 +28,6 @@ import java.util.Map;
 public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     // 주문번호 (외부 시스템 ID이므로 String)
@@ -39,7 +38,10 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
     @Column(name = "seller_id", nullable = false)
     private Long sellerId;
 
-    @Column(name = "product_id", nullable = false, length = 255)
+    @Column(name = "product_id")
+    private Long productId;
+
+    @Column(name = "product_name", nullable = false, length = 255)
     private String productName;
 
     @Column(name = "product_quantity", nullable = false)
@@ -59,7 +61,7 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
     @Column(name = "payment_method", length = 50)
     private PaymentMethod paymentMethod; // 혹은 별도 Enum 클래스 사용
 
-    // 거래 종류 (PAYMENT: 결제, REFUND: 환불)
+    // 거래 종류 (PAYMENT: 결제,구매확정, REFUND: 환불)
     @Enumerated(EnumType.STRING)
     @Column(name = "transaction_type", nullable = false, length = 30)
     private TransactionType transactionType;
@@ -69,49 +71,47 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
     @Column(name = "metadata", columnDefinition = "TEXT")
     private Map<String, Object> metadata;
 
-    // 주문 스냅샷 찍은 날짜 (주문 발생 시간)
-    @Column(name = "snapshot_at", nullable = false)
-    private LocalDateTime snapshotAt;
-
-    // --- 나중에 업데이트되는 필드들 ---
-
-    // 정산 번호 (처음엔 NULL, 정산 확정되면 ID 들어감)
-    @Column(name = "monthly_settlement_id")
-    private Long monthlySettlementId;
-
-    // 정산 상태 (WAIT -> READY -> COMPLETED)
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(name = "settlement_status", nullable = false, length = 30)
-    private SettlementStatus settlementStatus = SettlementStatus.WAIT;
-
     @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(name = "reconciliation_status", nullable = false, length = 30)
     private ReconciliationStatus reconciliationStatus = ReconciliationStatus.PENDING;
 
+
+    // 주문 스냅샷 찍은 날짜 (주문 발생 시간)
+    @Column(name = "snapshot_at", nullable = false)
+    private LocalDateTime snapshotAt;
+
+    @Column(name = "confirmed_at")
+    private LocalDateTime confirmedAt;
+
+
+    // 일별 정산 진행 후 업데이트 됨
+    // 정산 번호 (처음엔 NULL, 정산 확정되면 ID 들어감)
+    @Column(name = "daily_settlement_id")
+    private Long dailySettlementId;
+
+    // 생성자 필드
     @Builder
-    public SalesLog(String orderNo, Long sellerId, Long productAmount,
+    public SalesLog(String orderNo, Long sellerId, Long productId, Long productAmount,
                     Long paymentAmount, PaymentMethod paymentMethod,
                     TransactionType transactionType, Map<String, Object> metadata,
                     LocalDateTime snapshotAt) {
         this.orderNo = orderNo;
         this.sellerId = sellerId;
+        this.productId = productId;
         this.productAmount = productAmount;
         this.paymentAmount = paymentAmount;
         this.paymentMethod = paymentMethod;
         this.transactionType = transactionType;
         this.metadata = metadata;
         this.snapshotAt = snapshotAt;
-
         // 초기 상태 설정
-        this.settlementStatus = SettlementStatus.WAIT; // 기본값: 대기
         this.reconciliationStatus = ReconciliationStatus.PENDING;
     }
 
     // --- 비즈니스 로직 메소드 ---
 
-    // 1. 대사 관련 필드 메소드
+    // 대사 관련 필드 메소드
 
     public void matchReconciliation() {
         this.reconciliationStatus = ReconciliationStatus.MATCH;
@@ -120,20 +120,15 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
         this.reconciliationStatus = ReconciliationStatus.MISMATCH;
     }
 
-    // 2. 정산 관련 필드 메소드
-
-    public void readySettlement() {
-        this.settlementStatus = SettlementStatus.READY;
+    public void confirm(){
+        this.confirmedAt = LocalDateTime.now();
     }
 
-    public void completeReconciliation() {
-        this.reconciliationStatus = ReconciliationStatus.MATCH;
+    @PrePersist
+    public void generateId() {
+        if (this.id == null) {
+            // 저장하기 전에 TSID를 생성해서 넣음
+            this.id = TsidCreator.getTsid().toLong();
+        }
     }
-
-    public void completeSettlement(Long monthlySettlementId) {
-        this.monthlySettlementId = monthlySettlementId;
-        this.settlementStatus = SettlementStatus.COMPLETED;
-    }
-
-
 }
