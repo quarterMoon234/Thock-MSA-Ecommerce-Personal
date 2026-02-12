@@ -32,7 +32,10 @@ public class PaymentSyncMemberUseCase {
                         member.role(),
                         member.id(),
                         member.createdAt(),
-                        member.updatedAt()
+                        member.updatedAt(),
+                        member.accountNumber(),
+                        member.accountHolder(),
+                        member.bankCode()
                 )
         );
 
