@@ -51,6 +51,7 @@ public class RunReconciliationUseCase {
         // 부분 환불, 부분 확정을 도입하면서 PG사의 데이터를 일대일로 비교할 수 없게됐음.
         // 이에 따라 주문번호 + 가격으로 그루핑 해서 map에 저장 후, 그 값을 DB 값과 비교.
         // TODO: MVP 단계에서는 대용량을 생각하지 말고, 기능구현에 집중. 이후 Batch 도입 고려
+        // TODO: 대사의 과정이 절차적으로 표현되어 있어 가독성 떨어지니, 메소드 단위로 구분해 클린코드 만들기
 
         Map<String, Long> pgSumMap = pgList.stream()
                 .collect(Collectors.groupingBy(

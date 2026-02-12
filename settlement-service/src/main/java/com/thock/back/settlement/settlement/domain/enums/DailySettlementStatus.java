@@ -1,6 +1,6 @@
-package com.thock.back.settlement.reconciliation.domain.enums;
+package com.thock.back.settlement.settlement.domain.enums;
 
-public enum SettlementStatus {
+public enum DailySettlementStatus {
     PENDING,
     COMPLETED
 }

@@ -336,6 +336,7 @@ class RunReconciliationUseCaseTest {
         // assertThat(savedJob.getTotalCount()).isEqualTo(2);
         // assertThat(savedJob.getSuccessCount()).isEqualTo(1);
         // assertThat(savedJob.getMismatchCount()).isEqualTo(1);
+
         // then 3: 실패한 건에 대해 MismatchLog가 잘 저장되었는가?
         ArgumentCaptor<ReconciliationMismatchLog> logCaptor = ArgumentCaptor.forClass(ReconciliationMismatchLog.class);
         verify(mismatchLogRepository, times(1)).save(logCaptor.capture());

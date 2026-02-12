@@ -28,7 +28,7 @@ import java.util.Map;
 public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
 
     @Id
-    private Long id;
+    private Long id; // TSID
 
     // 주문번호 (외부 시스템 ID이므로 String)
     @Column(name = "order_no", nullable = false, length = 255)
@@ -111,6 +111,11 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
 
     // --- 비즈니스 로직 메소드 ---
 
+    // 일별 정산의 ID를 삽입해서 일별 정산이 진행되었음을 확인할 수 있도록
+    public void markAsSettled(Long dailySettlementId){
+        this.dailySettlementId = dailySettlementId;
+    }
+
     // 대사 관련 필드 메소드
 
     public void matchReconciliation() {
@@ -119,7 +124,6 @@ public class SalesLog extends BaseTimeEntity { // updated_at 포함됨
     public void mismatchReconciliation(){
         this.reconciliationStatus = ReconciliationStatus.MISMATCH;
     }
-
     public void confirm(){
         this.confirmedAt = LocalDateTime.now();
     }

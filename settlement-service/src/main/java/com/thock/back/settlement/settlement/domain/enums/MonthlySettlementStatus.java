@@ -1,7 +1,8 @@
 package com.thock.back.settlement.settlement.domain.enums;
 
-public enum PayoutStatus {
-    HOLD,
+public enum MonthlySettlementStatus {
     PENDING,
-    PAID
+    PROCESSING,
+    COMPLETED,
+    FAILED
 }
