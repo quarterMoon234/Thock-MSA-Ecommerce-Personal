@@ -16,8 +16,15 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @Table(name = "payment_members")
 public class PaymentMember extends ReplicaMember {
-    public PaymentMember(String email, String name, MemberState state, MemberRole role, Long id, LocalDateTime createdAt, LocalDateTime modifiedAt) {
+    private String bankCode;
+    private String accountNumber;
+    private String accountHolder;
+
+    public PaymentMember(String email, String name, MemberState state, MemberRole role, Long id, LocalDateTime createdAt, LocalDateTime modifiedAt, String bankCode, String accountNumber, String accountHolder) {
         super(email, name, role, state, id, createdAt, modifiedAt);
+        this.bankCode = bankCode;
+        this.accountNumber = accountNumber;
+        this.accountHolder = accountHolder;
     }
 }
 
