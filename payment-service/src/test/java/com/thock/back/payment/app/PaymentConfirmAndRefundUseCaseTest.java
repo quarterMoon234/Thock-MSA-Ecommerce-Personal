@@ -39,12 +39,12 @@ import static org.mockito.Mockito.*;
         "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.security.servlet.SecurityAutoConfiguration,org.springframework.boot.autoconfigure.kafka.KafkaAutoConfiguration",
         "spring.kafka.listener.auto-startup=false"
 })
-class PaymentConfirmServiceTest {
+class PaymentConfirmAndRefundUseCaseTest {
 
     private static MockWebServer mockWebServer;
 
     @Autowired
-    private PaymentConfirmService paymentConfirmService;
+    private PaymentConfirmAndRefundUseCase paymentConfirmAndRefundUseCase;
 
     @MockitoBean
     private PaymentRepository paymentRepository;
@@ -104,7 +104,10 @@ class PaymentConfirmServiceTest {
                 MemberRole.USER,
                 1L,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null,
+                null,
+                null
         );
         ReflectionTestUtils.setField(testMember, "id", 1L);
 
@@ -152,7 +155,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when
-        Map<String, Object> result = paymentConfirmService.confirmPayment(request);
+        Map<String, Object> result = paymentConfirmAndRefundUseCase.confirmPayment(request);
 
         // then
         assertThat(result).isNotNull();
@@ -176,7 +179,7 @@ class PaymentConfirmServiceTest {
         when(paymentRepository.findByOrderId("INVALID_ORDER")).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER);
     }
@@ -198,7 +201,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_NOT_REQUEST);
     }
@@ -229,7 +232,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOSS_AMOUNT_NOT_MATCH);
 
@@ -266,7 +269,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when
-        paymentConfirmService.cancelToss(request);
+        paymentConfirmAndRefundUseCase.cancelToss(request);
 
         // then
         assertThat(testPayment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
@@ -304,7 +307,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when
-        paymentConfirmService.cancelToss(request);
+        paymentConfirmAndRefundUseCase.cancelToss(request);
 
         // then
         assertThat(testPayment.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
@@ -329,7 +332,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_NOT_COMPLETE);
     }
@@ -350,7 +353,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.REFUND_NOT_CANCEL_REASON);
     }
@@ -371,7 +374,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFUND_AMOUNT);
     }
@@ -394,7 +397,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when
-        paymentConfirmService.cancelPayment(request);
+        paymentConfirmAndRefundUseCase.cancelPayment(request);
 
         // then
         assertThat(testPayment.getStatus()).isEqualTo(PaymentStatus.CANCELED);
@@ -421,7 +424,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when
-        paymentConfirmService.cancelPayment(request);
+        paymentConfirmAndRefundUseCase.cancelPayment(request);
 
         // then
         assertThat(testPayment.getStatus()).isEqualTo(PaymentStatus.PARTIALLY_CANCELED);
@@ -448,7 +451,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_NOT_COMPLETE);
     }
@@ -469,7 +472,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFUND_AMOUNT);
     }
@@ -487,7 +490,7 @@ class PaymentConfirmServiceTest {
         when(paymentRepository.findByOrderId("INVALID_ORDER")).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER);
     }
@@ -508,7 +511,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.WALLET_NOT_FOUND);
     }
@@ -529,7 +532,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFUND_AMOUNT);
     }
@@ -550,7 +553,7 @@ class PaymentConfirmServiceTest {
         when(paymentMemberRepository.findById(1L)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.MEMBER_NOT_FOUND);
     }
@@ -570,7 +573,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.WALLET_NOT_FOUND);
     }
@@ -597,7 +600,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.confirmPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.confirmPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOSS_CONFIRM_FAIL);
     }
@@ -615,7 +618,7 @@ class PaymentConfirmServiceTest {
         when(paymentRepository.findByOrderId("INVALID_ORDER")).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER);
     }
@@ -636,7 +639,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.empty());
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.WALLET_NOT_FOUND);
     }
@@ -655,7 +658,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_NOT_COMPLETE);
     }
@@ -683,7 +686,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.TOSS_CONFIRM_FAIL);
     }
@@ -702,7 +705,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(1L)).thenReturn(Optional.of(testWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.PAYMENT_NOT_COMPLETE);
     }
@@ -718,7 +721,10 @@ class PaymentConfirmServiceTest {
                 MemberRole.USER,
                 2L,
                 LocalDateTime.now(),
-                LocalDateTime.now()
+                LocalDateTime.now(),
+                null,
+                null,
+                null
         );
         ReflectionTestUtils.setField(inactiveMember, "id", 2L);
 
@@ -746,7 +752,7 @@ class PaymentConfirmServiceTest {
         when(walletRepository.findByHolderId(2L)).thenReturn(Optional.of(inactiveWallet));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelPayment(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelPayment(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.WALLET_IS_LOCKED);
     }
@@ -780,7 +786,7 @@ class PaymentConfirmServiceTest {
                 .addHeader(HttpHeaders.CONTENT_TYPE, MediaType.APPLICATION_JSON_VALUE));
 
         // when & then
-        assertThatThrownBy(() -> paymentConfirmService.cancelToss(request))
+        assertThatThrownBy(() -> paymentConfirmAndRefundUseCase.cancelToss(request))
                 .isInstanceOf(CustomException.class)
                 .hasFieldOrPropertyWithValue("errorCode", ErrorCode.INVALID_REFUND_AMOUNT);
     }

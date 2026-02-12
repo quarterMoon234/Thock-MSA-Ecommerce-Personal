@@ -7,5 +7,6 @@ public enum PaymentStatus {
     COMPLETED,   // 지갑까지 모두 반영 완료
     FAILED,      // 실패
     CANCELED,     // 취소
-    PARTIALLY_CANCELED // 부분 취소
+    PARTIALLY_CANCELED, // 부분 취소
+    CANCELED_PENDING // 취소 진행 중
 }
