@@ -1,6 +1,5 @@
 package com.thock.back.payment.app;
 
-
 import com.thock.back.global.exception.CustomException;
 import com.thock.back.global.exception.ErrorCode;
 import com.thock.back.payment.domain.Payment;

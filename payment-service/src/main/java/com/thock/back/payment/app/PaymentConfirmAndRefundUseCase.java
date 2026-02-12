@@ -24,6 +24,7 @@ import org.springframework.http.MediaType;
 import org.springframework.retry.annotation.Retryable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
@@ -34,23 +35,26 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 @Slf4j
-public class PaymentConfirmService {
+public class PaymentConfirmAndRefundUseCase {
     private final PaymentRepository paymentRepository;
     private final WalletRepository walletRepository;
     private final PaymentMemberRepository paymentMemberRepository;
     private final EventPublisher eventPublisher;
-    private static final String TOSS_BASE_URL = "https://api.tosspayments.com";
+    private final TransactionTemplate transactionTemplate;
     private static final String CONFIRM_PATH = "/v1/payments/confirm";
     private static final String CANCEL_PATH = "/v1/payments/{paymentKey}/cancel";
+
+    @Value("${custom.payment.toss.baseUrl:https://api.tosspayments.com}")
+    private String tossBaseUrl;
 
     @Value("${custom.payment.toss.payments.secretKey}")
     private String tossSecretKey;
 
+    // TODO: Payment가 Request상태일 때 TTL을 걸어서 일정 시간이 지나면 삭제 되게 해야할듯?
+
     /**
      * 토스페이먼츠 검증 기능
      **/
-
-    @Transactional
     public Map<String, Object> confirmPayment(PaymentConfirmRequestDto req) {
         Payment payment = paymentRepository.findByOrderId(req.getOrderId())
                 .orElseThrow(() -> {
@@ -72,51 +76,77 @@ public class PaymentConfirmService {
             log.error("결제 상태가 요청이 아닙니다. - orderId={}", req.getOrderId());
             throw new CustomException(ErrorCode.PAYMENT_NOT_REQUEST);
         }
+        // 이전 상태 저장
+        PaymentStatus previousStatus = payment.getStatus();
 
+        // 상태를 PG_PENDING 변경 (별도 트랜잭션으로 커밋)
+        transactionTemplate.executeWithoutResult(status -> {
+            Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+            p.updatePaymentStatus(PaymentStatus.PG_PENDING);
+            paymentRepository.save(p);
+        });
+        // 바디 채우기
         Map<String, Object> body = Map.of(
                 "paymentKey", req.getPaymentKey(),
                 "orderId", req.getOrderId(),
                 "amount", req.getAmount()
         );
 
-        Map<String, Object> confirmResponse = WebClient.builder()
-                .baseUrl(TOSS_BASE_URL)
-                .defaultHeaders(headers -> {
-                    String auth = Base64.getEncoder()
-                            .encodeToString((tossSecretKey + ":").getBytes());
-                    headers.set("Authorization", "Basic " + auth);
-                    headers.setContentType(MediaType.APPLICATION_JSON);
-                })
-                .build()
-                .post()
-                .uri(CONFIRM_PATH)
-                .bodyValue(body)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, response ->
-                        response.bodyToMono(TossErrorResponseDto.class)
-                                .flatMap(error -> {
-                                    log.error("토스 결제 확인 실패 - orderId={}, error={}", req.getOrderId(), error.message());
-                                    return Mono.error(
-                                            new CustomException(
-                                                    ErrorCode.TOSS_CONFIRM_FAIL,
-                                                    error.message()
-                                            )
-                                    );
-                }))
-                .bodyToMono(Map.class)
-                .block();
+        // 외부 API 통신
+        Map<String, Object> confirmResponse;
+
+        try {
+            confirmResponse = WebClient.builder()
+                    .baseUrl(tossBaseUrl)
+                    .defaultHeaders(headers -> {
+                        String auth = Base64.getEncoder()
+                                .encodeToString((tossSecretKey + ":").getBytes());
+                        headers.set("Authorization", "Basic " + auth);
+                        headers.setContentType(MediaType.APPLICATION_JSON);
+                    })
+                    .build()
+                    .post()
+                    .uri(CONFIRM_PATH)
+                    .bodyValue(body)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, response ->
+                            response.bodyToMono(TossErrorResponseDto.class)
+                                    .flatMap(error -> {
+                                        log.error("토스 결제 확인 실패 - orderId={}, error={}", req.getOrderId(), error.message());
+                                        return Mono.error(
+                                                new CustomException(
+                                                        ErrorCode.TOSS_CONFIRM_FAIL,
+                                                        error.message()
+                                                )
+                                        );
+                                    }))
+                    .bodyToMono(Map.class)
+                    .block();
+    } catch (Exception e) {
+        // 실패 시 상태 복원 (별도 트랜잭션으로 커밋)
+        transactionTemplate.executeWithoutResult(status -> {
+            Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+            p.updatePaymentStatus(previousStatus);
+            paymentRepository.save(p);
+        });
+        log.error("토스 API 호출 실패로 상태 복원 - orderId={}, status={}", req.getOrderId(), previousStatus);
+        throw e;
+    }
 
         // confirm 결과 검증 (토스 응답)
         Integer approvedAmount = (Integer) confirmResponse.get("totalAmount");
         if (!payment.getPgAmount().equals(approvedAmount.longValue())) {
             log.error("토스 결제 금액 불일치 - orderId={}, expected={}, actual={}", req.getOrderId(), payment.getPgAmount(), approvedAmount);
-            //TODO: 지금 금액이 맞지 않는 경우에 취소하고있는데 중간단계를 만들까 생각중
-            payment.updatePaymentStatus(PaymentStatus.CANCELED);
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+                p.updatePaymentStatus(previousStatus);
+                paymentRepository.save(p);
+            });
             throw new CustomException(ErrorCode.TOSS_AMOUNT_NOT_MATCH);
         }
 
         // 검증 후 process
-        payment.updatePaymentStatus(PaymentStatus.COMPLETED);
+        payment.updatePaymentStatus(PaymentStatus.PG_PAID);
         payment.updatePaymentKey(req.getPaymentKey());
         paymentRepository.save(payment);
         payment.createPaymentLogEvent();
@@ -127,42 +157,47 @@ public class PaymentConfirmService {
                                                 payment.getBuyer().getId(),
                                                 payment.getPgAmount(),
                                                 payment.getAmount(),
-                                                payment.getCreatedAt());
+                                                payment.getCreatedAt(),
+                                                payment.getRefundedAmount()
+        );
+
+        // 지갑 입금
+        wallet.depositBalance(payment.getAmount());
+        walletRepository.save(wallet);
+        wallet.createBalanceLogEvent(payment.getAmount(), EventType.주문_입금);
+
+        // 지갑 출금
+        wallet.withdrawBalance(payment.getAmount());
+        walletRepository.save(wallet);
+        wallet.createBalanceLogEvent(payment.getAmount(), EventType.주문_출금);
+
+        // 결제 상태 변경
+        payment.updatePaymentStatus(PaymentStatus.COMPLETED);
+        paymentRepository.save(payment);
+
+        // 결제 완료 이벤트 발행
         eventPublisher.publish(
                 new PaymentCompletedEvent(
                         paymentDto
                 )
         );
-        wallet.depositBalance(payment.getAmount());
-        walletRepository.save(wallet);
-        wallet.createBalanceLogEvent(payment.getAmount(), EventType.주문_입금);
-        wallet.withdrawBalance(payment.getAmount());
-        walletRepository.save(wallet);
-        wallet.createBalanceLogEvent(payment.getAmount(), EventType.주문_출금);
         return confirmResponse;
     }
 
     /**
      * 토스페이먼츠 취소 기능
+     * TODO: Outbox 패턴으로 리팩토링 예정
      **/
     @Retryable(
             retryFor = OptimisticLockException.class,
             maxAttempts = 3
     )
-    @Transactional
-    public void cancelToss(PaymentCancelRequestDto req){
-        // 검증
+    public void cancelToss(PaymentCancelRequestDto req) {
+        // 검증 (트랜잭션 외부에서 조회)
         Payment payment = paymentRepository.findByOrderId(req.orderId())
                 .orElseThrow(() -> {
                     log.error("결제 조회 실패 - orderId={}", req.orderId());
                     return new CustomException(ErrorCode.PAYMENT_UNKNOWN_ORDER_NUMBER);
-                });
-
-        // 지갑 확인
-        Wallet wallet = walletRepository.findByHolderId(payment.getBuyer().getId())
-                .orElseThrow(() -> {
-                    log.error("지갑 조회 실패 - memberId={}", payment.getBuyer().getId());
-                    return new CustomException(ErrorCode.WALLET_NOT_FOUND);
                 });
 
         // 상태 체크
@@ -172,7 +207,7 @@ public class PaymentConfirmService {
         }
 
         // 환불 이유 체크
-        if (req.cancelReason() == null){
+        if (req.cancelReason() == null) {
             log.error("환불 사유가 없습니다 - orderId={}", req.orderId());
             throw new CustomException(ErrorCode.REFUND_NOT_CANCEL_REASON);
         }
@@ -183,6 +218,16 @@ public class PaymentConfirmService {
             throw new CustomException(ErrorCode.INVALID_REFUND_AMOUNT);
         }
 
+        // 이전 상태 저장
+        PaymentStatus previousStatus = payment.getStatus();
+
+        // 상태를 CANCELED_PENDING으로 변경 (별도 트랜잭션으로 커밋)
+        transactionTemplate.executeWithoutResult(status -> {
+            Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+            p.updatePaymentStatus(PaymentStatus.CANCELED_PENDING);
+            paymentRepository.save(p);
+        });
+
         // 바디 채우기
         Map<String, Object> body = Map.of(
                 "paymentKey", payment.getPaymentKey(),
@@ -190,63 +235,82 @@ public class PaymentConfirmService {
                 "cancelAmount", req.amount()
         );
 
-        // WebClient
-        Map<String, Object> confirmResponse = WebClient.builder()
-                .baseUrl(TOSS_BASE_URL)
-                .defaultHeaders(headers -> {
-                    String auth = Base64.getEncoder()
-                            .encodeToString((tossSecretKey + ":").getBytes());
-                    headers.set("Authorization", "Basic " + auth);
-                    headers.setContentType(MediaType.APPLICATION_JSON);
-                })
-                .build()
-                .post()
-                .uri(CANCEL_PATH, payment.getPaymentKey())
-                .bodyValue(body)
-                .retrieve()
-                .onStatus(HttpStatusCode::isError, response ->
-                        response.bodyToMono(TossErrorResponseDto.class)
-                                .flatMap(error -> {
-                                    log.error("토스 결제 취소 실패 - orderId={}, error={}", req.orderId(), error.message());
-                                    return Mono.error(
-                                            new CustomException(
-                                                    ErrorCode.TOSS_CONFIRM_FAIL,
-                                                    error.message()
-                                            )
-                                    );
-                }))
-                .bodyToMono(Map.class)
-                .block();
+        // 외부 api 통신
+        Map<String, Object> confirmResponse;
+        try {
+            confirmResponse = WebClient.builder()
+                    .baseUrl(tossBaseUrl)
+                    .defaultHeaders(headers -> {
+                        String auth = Base64.getEncoder()
+                                .encodeToString((tossSecretKey + ":").getBytes());
+                        headers.set("Authorization", "Basic " + auth);
+                        headers.setContentType(MediaType.APPLICATION_JSON);
+                    })
+                    .build()
+                    .post()
+                    .uri(CANCEL_PATH, payment.getPaymentKey())
+                    .bodyValue(body)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, response ->
+                            response.bodyToMono(TossErrorResponseDto.class)
+                                    .flatMap(error -> {
+                                        log.error("토스 결제 취소 실패 - orderId={}, error={}", req.orderId(), error.message());
+                                        return Mono.error(
+                                                new CustomException(
+                                                        ErrorCode.TOSS_CONFIRM_FAIL,
+                                                        error.message()
+                                                )
+                                        );
+                    }))
+                    .bodyToMono(Map.class)
+                    .block();
+        } catch (Exception e) {
+            // 실패 시 상태 복원 (별도 트랜잭션으로 커밋)
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+                p.updatePaymentStatus(previousStatus);
+                paymentRepository.save(p);
+            });
+            log.error("토스 API 호출 실패로 상태 복원 - orderId={}, status={}", req.orderId(), previousStatus);
+            throw e;
+        }
 
         // cancel 결과 검증 (토스 응답)
-        String status = (String) confirmResponse.get("status");
+        String tossStatus = (String) confirmResponse.get("status");
         List<Map<String, Object>> cancels = (List<Map<String, Object>>) confirmResponse.get("cancels");
         Map<String, Object> lastCancel = cancels.get(cancels.size() - 1);  // 마지막 취소 건
         Number cancelAmountNum = (Number) lastCancel.get("cancelAmount");
         Long amount = cancelAmountNum.longValue();
-        if (status.equals("CANCELED")) {
-            // 부분 취소 입금
-            // 토스에서 제공하는 환불 금액으로 실제 지갑 증액
-            if (!amount.equals(payment.getAmount())) {
-                if(payment.updatePaymentRefundedAmount(amount)) {
-                    payment.updatePaymentStatus(PaymentStatus.PARTIALLY_CANCELED);
-                    wallet.depositBalance(amount);
-                    walletRepository.save(wallet);
-                    paymentRepository.save(payment);
-                    wallet.createBalanceLogEvent(req.amount(), EventType.부분취소_입금);
-                    log.info("토스 부분 환불 완료 - orderId={}, refundAmount={}", req.orderId(), amount);
+
+        if (tossStatus.equals("CANCELED")) {
+            // 성공 시 결과 처리 (별도 트랜잭션으로 커밋)
+            transactionTemplate.executeWithoutResult(status -> {
+                Payment p = paymentRepository.findById(payment.getId()).orElseThrow();
+                Wallet w = walletRepository.findByHolderId(p.getBuyer().getId()).orElseThrow();
+
+                // 부분 취소 입금
+                if (!amount.equals(p.getAmount())) {
+                    if(p.updatePaymentRefundedAmount(amount)) {
+                        p.updatePaymentStatus(PaymentStatus.PARTIALLY_CANCELED);
+                        w.depositBalance(amount);
+                        walletRepository.save(w);
+                        paymentRepository.save(p);
+                        w.createBalanceLogEvent(req.amount(), EventType.부분취소_입금);
+                        log.info("토스 부분 환불 완료 - orderId={}, refundAmount={}", req.orderId(), amount);
+                    }
+                } else {
+                    // 전액 환불
+                    if(p.updatePaymentRefundedAmount(amount)) {
+                        p.updatePaymentStatus(PaymentStatus.CANCELED);
+                        w.depositBalance(amount);
+                        walletRepository.save(w);
+                        paymentRepository.save(p);
+                        w.createBalanceLogEvent(p.getAmount(), EventType.전체취소_입금);
+                        log.info("토스 전액 환불 완료 - orderId={}, refundAmount={}", req.orderId(), amount);
+                    }
                 }
-            } else {
-                // 전액 환불
-                if(payment.updatePaymentRefundedAmount(amount)) {
-                    payment.updatePaymentStatus(PaymentStatus.CANCELED);
-                    wallet.depositBalance(amount);
-                    walletRepository.save(wallet);
-                    paymentRepository.save(payment);
-                    wallet.createBalanceLogEvent(payment.getAmount(), EventType.전체취소_입금);
-                    log.info("토스 전액 환불 완료 - orderId={}, refundAmount={}", req.orderId(), amount);
-                }
-            }
+            });
+
             // 환불 완료 이벤트 발행
             eventPublisher.publish(
                     new PaymentRefundCompletedEvent(
@@ -258,7 +322,6 @@ public class PaymentConfirmService {
                     )
             );
         }
-
     }
 
     /**
@@ -268,7 +331,6 @@ public class PaymentConfirmService {
             retryFor = OptimisticLockException.class,
             maxAttempts = 3
     )
-    @Transactional
     public void cancelPayment(PaymentCancelRequestDto req){
         // 결제 확인
         Payment payment = paymentRepository.findByOrderId(req.orderId())
@@ -294,8 +356,8 @@ public class PaymentConfirmService {
             log.error("환불 금액이 유효하지 않습니다 - orderId={}, amount={}", req.orderId(), req.amount());
             throw new CustomException(ErrorCode.INVALID_REFUND_AMOUNT);
         }
-
-        // 3. 전액 환불
+        // 3. 환불
+        // 전액 환불
         if (req.amount().equals(payment.getAmount())) {
             if (payment.updatePaymentRefundedAmount(req.amount())) {
                 payment.updatePaymentStatus(PaymentStatus.CANCELED);
@@ -305,16 +367,26 @@ public class PaymentConfirmService {
                 wallet.createBalanceLogEvent(req.amount(), EventType.전체취소_입금);
                 log.info("내부 결제 전액 환불 완료 - orderId={}, refundAmount={}", req.orderId(), req.amount());
             }
-            // 4. 부분 환불
-            else {
-                if (payment.updatePaymentRefundedAmount(req.amount())) {
-                    payment.updatePaymentStatus(PaymentStatus.PARTIALLY_CANCELED);
-                    paymentRepository.save(payment);
-                    wallet.depositBalance(req.amount());
-                    walletRepository.save(wallet);
-                    wallet.createBalanceLogEvent(req.amount(), EventType.부분취소_입금);
-                    log.info("내부 결제 부분 환불 완료 - orderId={}, refundAmount={}", req.orderId(), req.amount());
-                }
+            // 환불 완료 이벤트 발행
+            eventPublisher.publish(
+                    new PaymentRefundCompletedEvent(
+                            new RefundResponseDto(
+                                    payment.getBuyer().getId(),
+                                    payment.getOrderId(),
+                                    req.amount()
+                            )
+                    )
+            );
+        }
+        // 부분 환불
+        else {
+            if (payment.updatePaymentRefundedAmount(req.amount())) {
+                payment.updatePaymentStatus(PaymentStatus.PARTIALLY_CANCELED);
+                paymentRepository.save(payment);
+                wallet.depositBalance(req.amount());
+                walletRepository.save(wallet);
+                wallet.createBalanceLogEvent(req.amount(), EventType.부분취소_입금);
+                log.info("내부 결제 부분 환불 완료 - orderId={}, refundAmount={}", req.orderId(), req.amount());
             }
             // 환불 완료 이벤트 발행
             eventPublisher.publish(

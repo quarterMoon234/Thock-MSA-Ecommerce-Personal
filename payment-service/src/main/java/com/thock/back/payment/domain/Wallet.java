@@ -33,6 +33,9 @@ public class Wallet extends BaseIdAndTime {
 //    @OneToMany(mappedBy = "wallet")
 //    private List<RevenueLog> revenueLogs = new ArrayList<>();;
 
+    @Version   // 낙관적 락 추가
+    private Long version;
+
     public Wallet(PaymentMember holder) {
         this.holder = holder;
         this.balance = 0L;

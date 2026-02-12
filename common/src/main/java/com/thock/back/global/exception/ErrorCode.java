@@ -20,6 +20,7 @@ public enum ErrorCode {
     // ===== 공통 =====
     INTERNAL_SERVER_ERROR("GLOBAL-500-1", "서버 내부 오류가 발생했습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
     INVALID_REQUEST("GLOBAL-400-1", "잘못된 요청입니다.", HttpStatus.BAD_REQUEST),
+    INVALID_ROLE_SELLER("GLOBAL-2", "해당 유저의 등급이 판매자가 아닙니다.", HttpStatus.BAD_REQUEST),
 
     PAYMENT_TOSS_CONFIRM_FAILED("PAYMENT-400-1", "토스 결제 승인 실패", HttpStatus.BAD_REQUEST),
     PAYMENT_TOSS_EMPTY_RESPONSE("PAYMENT-500-1", "토스 결제 승인 응답이 비어있습니다.", HttpStatus.INTERNAL_SERVER_ERROR),
@@ -99,7 +100,9 @@ public enum ErrorCode {
     REFUND_NOT_CANCEL_REASON("REFUND-404-1", "환불 사유가 비어있습니다.", HttpStatus.NOT_FOUND),
     TOSS_REJECTED("PAYMENT-402-1", "PG에서 결제가 거절되었습니다.", HttpStatus.PAYMENT_REQUIRED),
     PAYMENT_NOT_MATCH_MEMBER("PAYMENT-400-11", "요청 멤버하고 결제 멤버하고 다릅니다.", HttpStatus.BAD_REQUEST),
-    INVALID_REFUND_AMOUNT("REFUND-400-1", "환불 금액이 올바르지 않습니다.", HttpStatus.BAD_REQUEST);
+    INVALID_REFUND_AMOUNT("REFUND-400-1", "환불 금액이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+    INVALID_AMOUNT("PAYMENT-400-12", "출금 금액이 올바르지 않습니다.", HttpStatus.BAD_REQUEST),
+
     // ===== 정산 =====
 
     ;
