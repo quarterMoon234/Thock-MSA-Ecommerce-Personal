@@ -352,7 +352,7 @@ public class PaymentConfirmAndRefundUseCase {
         }
 
         // 1. 0원 / 음수 방지
-        if (req.amount() < 0) {
+        if (req.amount() <= 0) {
             log.error("환불 금액이 유효하지 않습니다 - orderId={}, amount={}", req.orderId(), req.amount());
             throw new CustomException(ErrorCode.INVALID_REFUND_AMOUNT);
         }
