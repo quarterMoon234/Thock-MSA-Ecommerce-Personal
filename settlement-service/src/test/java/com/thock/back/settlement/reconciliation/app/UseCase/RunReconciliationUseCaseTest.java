@@ -1,7 +1,7 @@
 package com.thock.back.settlement.reconciliation.app.UseCase;
 
 import com.thock.back.settlement.reconciliation.domain.PgSalesRaw;
-import com.thock.back.settlement.reconciliation.domain.ReconciliationJob;
+import com.thock.back.settlement.reconciliation.domain.ReconciliationResult;
 import com.thock.back.settlement.reconciliation.domain.ReconciliationMismatchLog;
 import com.thock.back.settlement.reconciliation.domain.SalesLog;
 import com.thock.back.settlement.reconciliation.domain.enums.MismatchType;
@@ -353,16 +353,16 @@ class RunReconciliationUseCaseTest {
                 .thenReturn(List.of(failLog));
 
         // DB에 Job을 저장할 때 동작할 Mock 설정 (저장된 객체를 그대로 반환하도록)
-        when(jobRepository.save(any(ReconciliationJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobRepository.save(any(ReconciliationResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         runReconciliationUseCase.execute(testDate);
 
         // then 1: Job이 DB에 잘 저장(save) 되었는가?
-        ArgumentCaptor<ReconciliationJob> jobCaptor = ArgumentCaptor.forClass(ReconciliationJob.class);
+        ArgumentCaptor<ReconciliationResult> jobCaptor = ArgumentCaptor.forClass(ReconciliationResult.class);
         verify(jobRepository, times(1)).save(jobCaptor.capture());
 
-        ReconciliationJob savedJob = jobCaptor.getValue();
+        ReconciliationResult savedJob = jobCaptor.getValue();
 
         // then 2: Job의 통계(finish 결과)가 정확하게 집계되었는가? (전체 2건, 성공 1건, 실패 1건)
         // assertThat(savedJob.getTotalCount()).isEqualTo(2);

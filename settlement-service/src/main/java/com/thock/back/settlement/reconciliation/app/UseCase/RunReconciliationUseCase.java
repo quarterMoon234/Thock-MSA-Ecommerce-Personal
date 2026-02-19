@@ -1,7 +1,7 @@
 package com.thock.back.settlement.reconciliation.app.UseCase;
 
 import com.thock.back.settlement.reconciliation.domain.PgSalesRaw;
-import com.thock.back.settlement.reconciliation.domain.ReconciliationJob;
+import com.thock.back.settlement.reconciliation.domain.ReconciliationResult;
 import com.thock.back.settlement.reconciliation.domain.ReconciliationMismatchLog;
 import com.thock.back.settlement.reconciliation.domain.SalesLog;
 import com.thock.back.settlement.reconciliation.domain.enums.MismatchType;
@@ -40,7 +40,7 @@ public class RunReconciliationUseCase {
         log.info("=========[대사 시작] 기준일: {} =========", date);
 
         // 대사 결과를 담는 job 생성
-        ReconciliationJob job = ReconciliationJob.builder().
+        ReconciliationResult job = ReconciliationResult.builder().
                 baseDate(date).build();
         jobRepository.save(job);
 
@@ -152,7 +152,7 @@ public class RunReconciliationUseCase {
         return null;
     }
 
-    private void saveMismatchLog(ReconciliationJob job, PgSalesRaw pg, SalesLog internal,
+    private void saveMismatchLog(ReconciliationResult job, PgSalesRaw pg, SalesLog internal,
                                  Money calculatedInternalAmount, MismatchType type, String reason) {
 
         String orderNo = (pg != null) ? pg.getMerchantUid() : internal.getOrderNo();

@@ -178,6 +178,9 @@ services:
   redpanda:
     image: redpandadata/redpanda:v24.1.1
     container_name: redpanda
+    ports:
+      - "29092:29092"
+      - "9092:9092"
     command:
       - redpanda start
       - --smp=1
@@ -186,8 +189,8 @@ services:
       - --overprovisioned
       - --node-id=0
       - --check=false
-      - --kafka-addr=PLAINTEXT://0.0.0.0:29092
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:29092
+      - --kafka-addr=INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      - --advertise-kafka-addr=INTERNAL://redpanda:29092,EXTERNAL://localhost:9092
     networks:
       - internal
     volumes:

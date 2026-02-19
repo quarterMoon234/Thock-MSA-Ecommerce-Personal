@@ -12,3 +12,5 @@ swagger:
     url: http://localhost:8080
     description: Docker API Gateway
 
+## 서버 -> 도커
+## DB -> 도커

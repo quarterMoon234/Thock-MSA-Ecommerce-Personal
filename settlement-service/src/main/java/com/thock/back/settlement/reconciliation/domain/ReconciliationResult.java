@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Table(name = "reconciliation_job")
-public class ReconciliationJob {
+public class ReconciliationResult {
 
     @Id
     private Long id; // TSID
@@ -49,7 +49,7 @@ public class ReconciliationJob {
         }
     }
 
-    public ReconciliationJob(LocalDate baseDate) {
+    public ReconciliationResult(LocalDate baseDate) {
         this.baseDate = baseDate;
         this.status = JobStatus.RUNNING;       // 생성 시점엔 무조건 RUNNING
         this.startedAt = LocalDateTime.now();  // 생성 시점이 시작 시간
