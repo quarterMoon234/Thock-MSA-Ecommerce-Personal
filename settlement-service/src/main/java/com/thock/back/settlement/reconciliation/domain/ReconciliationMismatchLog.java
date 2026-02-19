@@ -18,7 +18,7 @@ public class ReconciliationMismatchLog {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "job_id", nullable = false)
-    private ReconciliationJob job;
+    private ReconciliationResult job;
 
     @Column(nullable = false)
     private String orderNo;
@@ -47,7 +47,7 @@ public class ReconciliationMismatchLog {
     }
 
     @Builder
-    public ReconciliationMismatchLog(ReconciliationJob job, String orderNo, String pgKey,
+    public ReconciliationMismatchLog(ReconciliationResult job, String orderNo, String pgKey,
                                      MismatchType type, Money internalAmount, Money pgAmount, String reason) {
         this.job = job;
         this.orderNo = orderNo;

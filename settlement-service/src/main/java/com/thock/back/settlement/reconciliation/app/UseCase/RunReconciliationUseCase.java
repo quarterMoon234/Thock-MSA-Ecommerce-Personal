@@ -1,7 +1,7 @@
 package com.thock.back.settlement.reconciliation.app.UseCase;
 
 import com.thock.back.settlement.reconciliation.domain.PgSalesRaw;
-import com.thock.back.settlement.reconciliation.domain.ReconciliationJob;
+import com.thock.back.settlement.reconciliation.domain.ReconciliationResult;
 import com.thock.back.settlement.reconciliation.domain.ReconciliationMismatchLog;
 import com.thock.back.settlement.reconciliation.domain.SalesLog;
 import com.thock.back.settlement.reconciliation.domain.enums.MismatchType;
@@ -40,7 +40,7 @@ public class RunReconciliationUseCase {
         log.info("=========[대사 시작] 기준일: {} =========", date);
 
         // 대사 결과를 담는 job 생성
-        ReconciliationJob job = ReconciliationJob.builder().
+        ReconciliationResult job = ReconciliationResult.builder().
                 baseDate(date).build();
         jobRepository.save(job);
 
@@ -88,7 +88,23 @@ public class RunReconciliationUseCase {
                         .filter(p -> p.getMerchantUid().equals(merchantUid) && p.getPgStatus() == pgStatus)
                         .findFirst().orElse(null);
 
-                saveMismatchLog(job, samplePg, null, Money.zero(), MismatchType.PG_ONLY, "주문서 누락");
+                List<SalesLog> sameOrderLogs = salesLogRepository.findByOrderNo(merchantUid);
+                if (!sameOrderLogs.isEmpty()) {
+                    sameOrderLogs.forEach(SalesLog::mismatchReconciliation);
+                    long internalTotal = sameOrderLogs.stream()
+                            .mapToLong(log -> log.getPaymentAmount().amount())
+                            .sum();
+                    saveMismatchLog(
+                            job,
+                            samplePg,
+                            sameOrderLogs.get(0),
+                            Money.of(internalTotal),
+                            MismatchType.STATUS_DIFF,
+                            "상태 불일치"
+                    );
+                } else {
+                    saveMismatchLog(job, samplePg, null, Money.zero(), MismatchType.PG_ONLY, "주문서 누락");
+                }
                 mismatchCount++;
                 continue;
             }
@@ -136,7 +152,7 @@ public class RunReconciliationUseCase {
         return null;
     }
 
-    private void saveMismatchLog(ReconciliationJob job, PgSalesRaw pg, SalesLog internal,
+    private void saveMismatchLog(ReconciliationResult job, PgSalesRaw pg, SalesLog internal,
                                  Money calculatedInternalAmount, MismatchType type, String reason) {
 
         String orderNo = (pg != null) ? pg.getMerchantUid() : internal.getOrderNo();
