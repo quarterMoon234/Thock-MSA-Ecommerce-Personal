@@ -1,7 +1,7 @@
 package com.thock.back.settlement.reconciliation.app.UseCase;
 
 import com.thock.back.settlement.reconciliation.domain.PgSalesRaw;
-import com.thock.back.settlement.reconciliation.domain.ReconciliationJob;
+import com.thock.back.settlement.reconciliation.domain.ReconciliationResult;
 import com.thock.back.settlement.reconciliation.domain.ReconciliationMismatchLog;
 import com.thock.back.settlement.reconciliation.domain.SalesLog;
 import com.thock.back.settlement.reconciliation.domain.enums.MismatchType;
@@ -51,6 +51,7 @@ class RunReconciliationUseCaseTest {
     @BeforeEach
     void setUp() {
         testDate = LocalDate.of(2026, 2, 11);
+        lenient().when(salesLogRepository.findByOrderNo(any())).thenReturn(List.of());
     }
 
     @Test
@@ -271,6 +272,36 @@ class RunReconciliationUseCaseTest {
     }
 
     @Test
+    @DisplayName("[실패] 상태 불일치 (STATUS_DIFF) - 주문은 존재하지만 결제/환불 타입이 다름")
+    void execute_Fail_StatusDiff() {
+        // given: PG는 결제(PAID)인데 내부엔 환불(REFUND) 내역만 존재
+        String orderNo = "ORD-STATUS-DIFF";
+        PgSalesRaw pgRaw = createPgRaw(orderNo, PgStatus.PAID, 50000L);
+        SalesLog refundLog = createSalesLog(orderNo, TransactionType.REFUND, -50000L);
+
+        when(pgSalesRawRepository.findAllByTransactedAtBetween(any(), any()))
+                .thenReturn(List.of(pgRaw));
+        when(salesLogRepository.findByOrderNoAndTransactionType(orderNo, TransactionType.PAYMENT))
+                .thenReturn(List.of()); // 동일 상태 타입 조회 결과 없음
+        when(salesLogRepository.findByOrderNo(orderNo))
+                .thenReturn(List.of(refundLog)); // 같은 주문번호는 존재
+
+        // when
+        runReconciliationUseCase.execute(testDate);
+
+        // then
+        assertThat(refundLog.getReconciliationStatus()).isEqualTo(ReconciliationStatus.MISMATCH);
+
+        ArgumentCaptor<ReconciliationMismatchLog> logCaptor = ArgumentCaptor.forClass(ReconciliationMismatchLog.class);
+        verify(mismatchLogRepository, times(1)).save(logCaptor.capture());
+
+        ReconciliationMismatchLog savedLog = logCaptor.getValue();
+        assertThat(savedLog.getType()).isEqualTo(MismatchType.STATUS_DIFF);
+        assertThat(savedLog.getOrderNo()).isEqualTo(orderNo);
+        assertThat(savedLog.getReason()).contains("상태 불일치");
+    }
+
+    @Test
     @DisplayName("[성공] 다중 상품 일치 - 키보드 4만, 마우스 2만 (PG 6만) 대사 완벽 통과")
     void execute_Success_MultiItemMatch() {
         // given: 상품이 여러 개 담긴 장바구니 결제 상황
@@ -322,16 +353,16 @@ class RunReconciliationUseCaseTest {
                 .thenReturn(List.of(failLog));
 
         // DB에 Job을 저장할 때 동작할 Mock 설정 (저장된 객체를 그대로 반환하도록)
-        when(jobRepository.save(any(ReconciliationJob.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        when(jobRepository.save(any(ReconciliationResult.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         // when
         runReconciliationUseCase.execute(testDate);
 
         // then 1: Job이 DB에 잘 저장(save) 되었는가?
-        ArgumentCaptor<ReconciliationJob> jobCaptor = ArgumentCaptor.forClass(ReconciliationJob.class);
+        ArgumentCaptor<ReconciliationResult> jobCaptor = ArgumentCaptor.forClass(ReconciliationResult.class);
         verify(jobRepository, times(1)).save(jobCaptor.capture());
 
-        ReconciliationJob savedJob = jobCaptor.getValue();
+        ReconciliationResult savedJob = jobCaptor.getValue();
 
         // then 2: Job의 통계(finish 결과)가 정확하게 집계되었는가? (전체 2건, 성공 1건, 실패 1건)
         // assertThat(savedJob.getTotalCount()).isEqualTo(2);
