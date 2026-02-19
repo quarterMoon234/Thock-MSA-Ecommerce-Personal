@@ -2,7 +2,7 @@ name: CD
 
 on:
   pull_request:
-    branches: [ "fix/301-infra-CD" ]
+    branches: [ "main", "dev" ]
     types: [ closed ]
 
 jobs:
