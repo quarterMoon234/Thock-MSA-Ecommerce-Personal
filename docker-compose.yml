@@ -1,7 +1,9 @@
 services:
   # ==================== API Gateway (외부 진입점) ====================
   api-gateway:
-    image: sang234/api-gateway:latest
+    build:
+      context: .
+      dockerfile: api-gateway/Dockerfile
     container_name: api-gateway
     ports:
       - "8080:8080"
@@ -34,7 +36,9 @@ services:
 
   # ==================== Application Services ====================
   member-service:
-    image: sang234/member-service:latest
+    build:
+      context: .
+      dockerfile: member-service/Dockerfile
     container_name: member-service
     expose:
       - "8081"
@@ -61,7 +65,9 @@ services:
     restart: unless-stopped
 
   product-service:
-    image: sang234/product-service:latest
+    build:
+      context: .
+      dockerfile: product-service/Dockerfile
     container_name: product-service
     expose:
       - "8082"
@@ -88,7 +94,9 @@ services:
     restart: unless-stopped
 
   market-service:
-    image: sang234/market-service:latest
+    build:
+      context: .
+      dockerfile: market-service/Dockerfile
     container_name: market-service
     expose:
       - "8083"
@@ -121,7 +129,9 @@ services:
     restart: unless-stopped
 
   payment-service:
-    image: sang234/payment-service:latest
+    build:
+      context: .
+      dockerfile: payment-service/Dockerfile
     container_name: payment-service
     expose:
       - "8084"
@@ -148,7 +158,9 @@ services:
     restart: unless-stopped
 
   settlement-service:
-    image: sang234/settlement-service:latest
+    build:
+      context: .
+      dockerfile: settlement-service/Dockerfile
     container_name: settlement-service
     expose:
       - "8085"
@@ -178,6 +190,9 @@ services:
   redpanda:
     image: redpandadata/redpanda:v24.1.1
     container_name: redpanda
+    ports:
+      - "29092:29092"
+      - "9092:9092"
     command:
       - redpanda start
       - --smp=1
@@ -186,8 +201,8 @@ services:
       - --overprovisioned
       - --node-id=0
       - --check=false
-      - --kafka-addr=PLAINTEXT://0.0.0.0:29092
-      - --advertise-kafka-addr=PLAINTEXT://redpanda:29092
+      - --kafka-addr=INTERNAL://0.0.0.0:29092,EXTERNAL://0.0.0.0:9092
+      - --advertise-kafka-addr=INTERNAL://redpanda:29092,EXTERNAL://localhost:9092
     networks:
       - internal
     volumes:
