@@ -5,6 +5,7 @@ import com.thock.back.market.domain.OrderState;
 import com.thock.back.market.out.repository.OrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
@@ -19,8 +20,8 @@ public class OrderTimeoutScheduler {
     private final OrderRepository orderRepository;
     private final OrderTimeoutCancelWorker orderTimeoutCancelWorker;
 
-    // TODO : Policy로 변경
-    private static final int PAYMENT_TIMEOUT_MINUTES = 30;
+    @Value("${market.order.payment-timeout-minutes:30}")
+    private int paymentTimeoutMinutes;
 
     /**
      * 미결제 주문 타임아웃 처리
@@ -33,9 +34,9 @@ public class OrderTimeoutScheduler {
      * - 주문 1건은 worker에서 REQUIRES_NEW 트랜잭션으로 처리한다.
      * - 따라서 한 건 충돌/실패가 나도 나머지 주문 처리는 계속된다.
      */
-    @Scheduled(fixedDelay = 60000) // 1분마다 실행
+    @Scheduled(fixedDelayString = "${market.order.timeout-check-interval-ms:60000}")
     public void cancelExpiredOrders() {
-        LocalDateTime expiredTime = LocalDateTime.now().minusMinutes(PAYMENT_TIMEOUT_MINUTES);
+        LocalDateTime expiredTime = LocalDateTime.now().minusMinutes(paymentTimeoutMinutes);
 
         List<Order> expiredOrders = orderRepository.findByStateAndRequestPaymentDateBefore(
                 OrderState.PENDING_PAYMENT, expiredTime);

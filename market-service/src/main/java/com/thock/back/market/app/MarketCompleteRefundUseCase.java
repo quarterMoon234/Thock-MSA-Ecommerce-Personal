@@ -24,8 +24,8 @@ public class MarketCompleteRefundUseCase {
                     OptimisticLockException.class,
                     ObjectOptimisticLockingFailureException.class
             },
-            maxAttempts = 3,
-            backoff = @Backoff(delay = 100)
+            maxAttemptsExpression = "${market.retry.optimistic-lock.max-attempts:3}",
+            backoff = @Backoff(delayExpression = "${market.retry.optimistic-lock.backoff-ms:100}")
     )
     @Transactional
     public void completeRefund(String orderNumber) {
