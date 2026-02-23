@@ -48,11 +48,10 @@ spec:
       name: redpanda-storage
     spec:
       accessModes: ["ReadWriteOnce"]
+      storageClassName: local-path  # K3s 기본 StorageClass
       resources:
         requests:
           storage: 10Gi
-      # AWS EKS의 경우 storageClassName 지정
-      # storageClassName: gp3
 ---
 apiVersion: v1
 kind: Service

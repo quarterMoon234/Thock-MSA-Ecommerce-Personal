@@ -1,6 +1,7 @@
 #!/bin/bash
 
-# Kubernetes Deployment Script for Thock Application
+# K3s Deployment Script for Single EC2 Instance
+# Optimized for learning and single-node deployment
 # Usage: ./deploy.sh [--skip-secrets] [--skip-ingress] [--skip-monitoring]
 
 set -e
@@ -39,7 +40,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 echo -e "${GREEN}========================================${NC}"
-echo -e "${GREEN}Kubernetes Deployment Script${NC}"
+echo -e "${GREEN}K3s Deployment Script (Single EC2)${NC}"
 echo -e "${GREEN}========================================${NC}"
 
 # Function to print step
@@ -66,9 +67,23 @@ wait_for_pod() {
     kubectl wait --for=condition=ready pod -l $label -n $namespace --timeout=300s
 }
 
+# Check if K3s is installed
+if command -v k3s &> /dev/null; then
+    echo -e "${GREEN}K3s detected!${NC}"
+    IS_K3S=true
+else
+    IS_K3S=false
+fi
+
 # Check if kubectl is installed
 if ! command -v kubectl &> /dev/null; then
-    echo -e "${RED}kubectl is not installed. Please install kubectl first.${NC}"
+    echo -e "${RED}kubectl is not installed.${NC}"
+    if [ "$IS_K3S" = true ]; then
+        echo -e "${YELLOW}For K3s, configure kubectl with:${NC}"
+        echo -e "${YELLOW}mkdir -p ~/.kube${NC}"
+        echo -e "${YELLOW}sudo cp /etc/rancher/k3s/k3s.yaml ~/.kube/config${NC}"
+        echo -e "${YELLOW}sudo chown \$USER:\$USER ~/.kube/config${NC}"
+    fi
     exit 1
 fi
 
@@ -76,6 +91,10 @@ fi
 if ! kubectl cluster-info &> /dev/null; then
     echo -e "${RED}Cannot connect to Kubernetes cluster. Please check your kubeconfig.${NC}"
     exit 1
+fi
+
+if [ "$IS_K3S" = true ]; then
+    echo -e "${YELLOW}Note: Using K3s configuration (single EC2 optimized)${NC}"
 fi
 
 print_step "Step 1: Creating Namespace"
@@ -162,15 +181,9 @@ else
 fi
 
 print_step "Step 9: Deploying HPA (Horizontal Pod Autoscaler)"
-# Check if metrics-server is installed
-if kubectl get deployment metrics-server -n kube-system &> /dev/null; then
-    kubectl apply -f base/hpa.yaml
-    echo -e "${GREEN}HPA created successfully${NC}"
-else
-    echo -e "${YELLOW}WARNING: metrics-server not found. Skipping HPA creation.${NC}"
-    echo -e "${YELLOW}To install metrics-server, run:${NC}"
-    echo -e "${YELLOW}kubectl apply -f https://github.com/kubernetes-sigs/metrics-server/releases/latest/download/components.yaml${NC}"
-fi
+# K3s includes metrics-server by default
+kubectl apply -f base/hpa.yaml
+echo -e "${GREEN}HPA created successfully${NC}"
 
 print_step "Deployment Complete!"
 echo -e "${GREEN}========================================${NC}"
@@ -192,5 +205,13 @@ echo -e "  View pods:              ${YELLOW}kubectl get pods -n thock-prod${NC}"
 echo -e "  View services:          ${YELLOW}kubectl get svc -n thock-prod${NC}"
 echo -e "  View logs:              ${YELLOW}kubectl logs -f <pod-name> -n thock-prod${NC}"
 echo -e "  Describe pod:           ${YELLOW}kubectl describe pod <pod-name> -n thock-prod${NC}"
-echo -e "  Port-forward (Grafana): ${YELLOW}kubectl port-forward svc/grafana 3000:3000 -n thock-prod${NC}"
+echo -e "  Port-forward API:       ${YELLOW}kubectl port-forward svc/api-gateway 8080:8080 -n thock-prod${NC}"
+echo -e "  Port-forward Grafana:   ${YELLOW}kubectl port-forward svc/grafana 3000:3000 -n thock-prod${NC}"
 echo -e "  Get HPA status:         ${YELLOW}kubectl get hpa -n thock-prod${NC}"
+
+if [ "$IS_K3S" = true ]; then
+    echo -e "\n${YELLOW}K3s Specific:${NC}"
+    echo -e "  K3s service status:     ${YELLOW}sudo systemctl status k3s${NC}"
+    echo -e "  K3s logs:               ${YELLOW}sudo journalctl -u k3s -f${NC}"
+    echo -e "  Traefik Ingress:        ${YELLOW}kubectl get svc -n kube-system traefik${NC}"
+fi
