@@ -1,25 +1,25 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: payment-service
+  name: settlement-service
   namespace: thock-prod
   labels:
-    app: payment-service
+    app: settlement-service
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: payment-service
+      app: settlement-service
   template:
     metadata:
       labels:
-        app: payment-service
+        app: settlement-service
     spec:
       containers:
-        - name: payment-service
-          image: sang234/payment-service:latest
+        - name: settlement-service
+          image: sang234/settlement-service:latest
           ports:
-            - containerPort: 8084
+            - containerPort: 8085
               name: http
 
           envFrom:
@@ -30,49 +30,49 @@ spec:
 
           env:
             - name: MYSQL_DATABASE
-              value: "thock_payment_db"
+              value: "thock_settlement_db"
             - name: MYSQL_USER
-              value: "thock_payment_db_user"
+              value: "thock_settlement_db_user"
             - name: MYSQL_PASSWORD
               valueFrom:
                 secretKeyRef:
                   name: app-secrets
-                  key: PAYMENT_DB_PASSWORD
+                  key: SETTLEMENT_DB_PASSWORD
 
           livenessProbe:
             httpGet:
               path: /actuator/health/liveness
-              port: 8084
-            initialDelaySeconds: 90
+              port: 8085
+            initialDelaySeconds: 240
             periodSeconds: 10
             timeoutSeconds: 5
-            failureThreshold: 3
+            failureThreshold: 10
           readinessProbe:
             httpGet:
               path: /actuator/health/readiness
-              port: 8084
-            initialDelaySeconds: 60
+              port: 8085
+            initialDelaySeconds: 180
             periodSeconds: 5
             timeoutSeconds: 3
-            failureThreshold: 3
+            failureThreshold: 10
           resources:
             requests:
-              memory: "128Mi"
+              memory: "512Mi"
               cpu: "50m"
             limits:
-              memory: "256Mi"
+              memory: "512Mi"
               cpu: "250m"
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: payment-service
+  name: settlement-service
   namespace: thock-prod
 spec:
   selector:
-    app: payment-service
+    app: settlement-service
   ports:
-    - port: 8084
-      targetPort: 8084
+    - port: 8085
+      targetPort: 8085
       name: http
   type: ClusterIP
