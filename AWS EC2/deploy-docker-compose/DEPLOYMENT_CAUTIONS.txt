@@ -1,0 +1,48 @@
+Thock Docker Compose 수동 배포 주의사항
+
+1) 핵심 원칙
+- 운영 배포에서는 image:latest 사용 금지
+- 배포 태그는 merge commit SHA(또는 릴리스 태그)로 고정
+- 실행 전 .env의 IMAGE_TAG 값을 반드시 확인/갱신
+
+2) 수동 배포 표준 절차
+1. 배포 디렉토리 이동
+   cd ~/deploy-docker-compose
+
+2. 태그 지정 (.env)
+   IMAGE_TAG=<배포할_SHA>
+   (파일에 저장하거나 export로 주입)
+
+3. 이미지 pull
+   docker compose pull
+
+4. 컨테이너 재기동
+   docker compose up -d
+
+5. 상태 확인
+   docker compose ps
+
+3) 배포 후 검증 (필수)
+- 실제 실행 이미지 확인 (latest 금지 확인)
+  docker compose config | grep "image:"
+  docker ps --format "table {{.Names}}\t{{.Image}}"
+
+- 헬스체크 확인
+  docker exec api-gateway sh -lc 'wget -qO- http://member-service:8081/actuator/health'
+  docker exec api-gateway sh -lc 'wget -qO- http://product-service:8082/actuator/health'
+  docker exec api-gateway sh -lc 'wget -qO- http://market-service:8083/actuator/health'
+  docker exec api-gateway sh -lc 'wget -qO- http://payment-service:8084/actuator/health'
+  docker exec api-gateway sh -lc 'wget -qO- http://settlement-service:8085/actuator/health'
+
+4) 롤백 절차
+- 이전 정상 태그로 IMAGE_TAG 값을 되돌린 뒤 재배포
+  IMAGE_TAG=<이전_정상_SHA>
+  docker compose pull
+  docker compose up -d
+
+5) 운영 시 자주 발생하는 실수
+- .env의 IMAGE_TAG를 갱신하지 않음
+- pull 없이 up만 실행해서 이전 캐시 이미지 실행
+- latest 태그를 다시 사용함
+- 헬스체크 확인 없이 배포 완료로 판단함
+
