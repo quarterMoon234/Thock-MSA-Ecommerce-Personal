@@ -36,6 +36,7 @@ public class Product extends BaseIdAndTime {
     private Long price;
     private Long salePrice;
     private Integer stock;
+    @Column(nullable = false)
     private Integer reservedStock;
     private String imageUrl;
 
@@ -85,8 +86,13 @@ public class Product extends BaseIdAndTime {
         this.viewCount = 0L;
     }
 
-    public void modify(String name, Long price, Long salePrice, Integer stock,
-                       Category category, String description, String imageUrl,
+    public void modify(String name,
+                       Long price,
+                       Long salePrice,
+                       Integer stock,
+                       Category category,
+                       String description,
+                       String imageUrl,
                        Map<String, Object> detail){
 
         if (name == null || name.isBlank()) {
@@ -122,7 +128,7 @@ public class Product extends BaseIdAndTime {
 
         // 사용 가능한 재고가 요청된 수량보다 적으면 예외 발생
         if (available < quantity) {
-            throw new CustomException(ErrorCode.PRODUCT_STOCK_NOT_ENOUGH)
+            throw new CustomException(ErrorCode.PRODUCT_STOCK_NOT_ENOUGH);
         }
 
         // 예약된 재고 증가
