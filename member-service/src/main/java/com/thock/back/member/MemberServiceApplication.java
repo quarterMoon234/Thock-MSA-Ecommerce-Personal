@@ -16,11 +16,9 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @EnableScheduling
 @EnableJpaRepositories(basePackages = {
         "com.thock.back.member",
-        "com.thock.back.global.outbox.repository"
 })
 @EntityScan(basePackages = {
         "com.thock.back.member",
-        "com.thock.back.global.outbox.entity"
 })
 public class MemberServiceApplication {
 
