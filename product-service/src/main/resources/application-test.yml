@@ -5,6 +5,13 @@ spring:
     password: ${TEST_DB_PASSWORD:test}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
+  flyway:
+    enabled: false
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+
   batch:
     job:
       enabled: false

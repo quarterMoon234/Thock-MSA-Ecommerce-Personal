@@ -8,6 +8,16 @@ spring:
     username: ${MYSQL_USER}
     password: ${MYSQL_PASSWORD}
 
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    validate-on-migrate: true
+    clean-disabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
 swagger:
   server:
     url: http://localhost:8080
