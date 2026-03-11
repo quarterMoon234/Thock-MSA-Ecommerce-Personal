@@ -53,3 +53,7 @@ product:
     enabled: true
   kafka:
     consumer-group: product-service
+  outbox:
+    enabled: true
+    poller:
+      interval-ms: 3000
